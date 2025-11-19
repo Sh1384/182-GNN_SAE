@@ -46,8 +46,8 @@ class GraphMotifGenerator:
         ]
 
     def _sample_weight(self) -> float:
-        """Sample a random edge weight from uniform distribution [-1, 1]."""
-        return self.rng.uniform(-1.0, 1.0)
+        """Sample a random edge weight from uniform distribution [0, 1]."""
+        return self.rng.uniform(0.0, 1.0)
 
     def _build_feedforward_loop(self) -> nx.DiGraph:
         """
@@ -181,7 +181,7 @@ class GraphMotifGenerator:
 
         Args:
             motif_type: Type of motif to generate
-            target_size: Target number of nodes (3-6), randomly chosen if None
+            target_size: Target number of nodes (3-4), randomly chosen if None
 
         Returns:
             DiGraph containing the specified motif
@@ -199,7 +199,7 @@ class GraphMotifGenerator:
 
         # Expand to target size if specified
         if target_size is None:
-            target_size = self.rng.integers(3, 7)  # 3-6 nodes
+            target_size = self.rng.integers(3, 5)  # 3-4 nodes
 
         G = self._expand_graph(G, target_size)
         G = self._relabel_nodes_sequentially(G)

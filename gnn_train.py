@@ -172,9 +172,10 @@ class GCNModel(nn.Module):
             Predicted node values
         """
         x, edge_index = data.x, data.edge_index
+        edge_weight = getattr(data, 'edge_attr', None)
 
         # Layer 1: GCNConv + ReLU + Dropout
-        h1 = self.conv1(x, edge_index)
+        h1 = self.conv1(x, edge_index, edge_weight=edge_weight)
         h1 = F.relu(h1)
 
         if store_activations:
@@ -183,7 +184,7 @@ class GCNModel(nn.Module):
         h1 = F.dropout(h1, p=self.dropout, training=self.training)
 
         # Layer 2: GCNConv
-        h2 = self.conv2(h1, edge_index)
+        h2 = self.conv2(h1, edge_index, edge_weight=edge_weight)
 
         if store_activations:
             self.layer2_activations = h2.detach()
@@ -376,12 +377,13 @@ def collate_fn(batch: List[Data]) -> Data:
     return Batch.from_data_list(batch)
 
 
-def load_all_graphs(data_dir: str = "./virtual_graphs/data") -> List[Path]:
+def load_all_graphs(data_dir: str = "./virtual_graphs/data", single_motif_only: bool = True) -> List[Path]:
     """
     Load all graph paths from the data directory.
 
     Args:
         data_dir: Base directory containing graph data
+        single_motif_only: If True, only load single-motif graphs
 
     Returns:
         List of paths to graph pickle files
@@ -396,10 +398,11 @@ def load_all_graphs(data_dir: str = "./virtual_graphs/data") -> List[Path]:
             if motif_type_dir.is_dir():
                 graph_paths.extend(sorted(motif_type_dir.glob("*.pkl")))
 
-    # Load mixed-motif graphs
-    mixed_motif_dir = data_path / "mixed_motif_graphs"
-    if mixed_motif_dir.exists():
-        graph_paths.extend(sorted(mixed_motif_dir.glob("*.pkl")))
+    # Load mixed-motif graphs only if single_motif_only is False
+    if not single_motif_only:
+        mixed_motif_dir = data_path / "mixed_motif_graphs"
+        if mixed_motif_dir.exists():
+            graph_paths.extend(sorted(mixed_motif_dir.glob("*.pkl")))
 
     return graph_paths
 
@@ -450,7 +453,7 @@ def main():
     print(f"Loading graphs from ./virtual_graphs/data/")
 
     # Load and split data
-    all_graph_paths = load_all_graphs()
+    all_graph_paths = load_all_graphs(single_motif_only=True)
     print(f"Found {len(all_graph_paths)} graphs")
 
     if len(all_graph_paths) == 0:
