@@ -6,8 +6,10 @@ from partially observed synthetic graphs. Saves trained models and layer activat
 for downstream interpretability analysis.
 """
 
+import json
 import os
 import pickle
+from collections import defaultdict
 from pathlib import Path
 from typing import Dict, List, Tuple, Optional
 
@@ -19,6 +21,29 @@ from torch.utils.data import Dataset, DataLoader
 from torch_geometric.nn import GCNConv
 from torch_geometric.data import Data, Batch
 from tqdm import tqdm
+
+
+MOTIF_LABELS = [
+    "cascade",
+    "feedback_loop",
+    "feedforward_loop",
+    "single_input_module",
+    "mixed_motif",
+    "unknown"
+]
+MOTIF_TO_ID = {label: idx for idx, label in enumerate(MOTIF_LABELS)}
+
+
+def _infer_motif_label(graph_path: Path) -> str:
+    """Infer motif label from a path using directory structure."""
+    parts = graph_path.parts
+    if "single_motif_graphs" in parts:
+        idx = parts.index("single_motif_graphs")
+        if idx + 1 < len(parts):
+            return parts[idx + 1]
+    if "mixed_motif_graphs" in parts:
+        return "mixed_motif"
+    return "unknown"
 
 
 class GraphDataset(Dataset):
@@ -61,6 +86,9 @@ class GraphDataset(Dataset):
         with open(self.graph_paths[idx], 'rb') as f:
             G = pickle.load(f)
 
+        motif_label = _infer_motif_label(self.graph_paths[idx])
+        motif_id = MOTIF_TO_ID.get(motif_label, MOTIF_TO_ID["unknown"])
+
         # Get adjacency matrix and simulate expression
         import networkx as nx
         n_nodes = len(G.nodes())
@@ -100,6 +128,7 @@ class GraphDataset(Dataset):
             mask=mask,
             num_nodes=n_nodes
         )
+        data.motif_id = torch.tensor([motif_id], dtype=torch.long)
 
         return data
 
@@ -152,8 +181,9 @@ class GCNModel(nn.Module):
         """
         super(GCNModel, self).__init__()
 
-        self.conv1 = GCNConv(input_dim, hidden_dim)
-        self.conv2 = GCNConv(hidden_dim, output_dim)
+        # Disable internal normalization to support signed edge weights
+        self.conv1 = GCNConv(input_dim, hidden_dim, normalize=False)
+        self.conv2 = GCNConv(hidden_dim, output_dim, normalize=False)
         self.dropout = dropout
 
         # Storage for activations
@@ -407,8 +437,84 @@ def load_all_graphs(data_dir: str = "./virtual_graphs/data", single_motif_only: 
     return graph_paths
 
 
+def _count_motif_distribution(paths: List[Path]) -> Dict[str, int]:
+    counts: Dict[str, int] = {}
+    for path in paths:
+        motif = _infer_motif_label(path)
+        counts[motif] = counts.get(motif, 0) + 1
+    return counts
+
+
+def _print_split_stats(name: str, paths: List[Path]):
+    counts = _count_motif_distribution(paths)
+    motif_strings = [f"{motif}: {count}" for motif, count in sorted(counts.items())]
+    details = ", ".join(motif_strings)
+    print(f"{name} split -> total: {len(paths)} ({details})")
+
+
+def _compute_motif_metrics(trainer: "GNNTrainer", data_loader: DataLoader) -> Dict[str, Dict[str, float]]:
+    """Compute average masked MSE per motif for a given loader."""
+    trainer.model.eval()
+    motif_losses: Dict[str, List[float]] = defaultdict(list)
+    motif_counts: Dict[str, int] = defaultdict(int)
+
+    with torch.no_grad():
+        for batch in data_loader:
+            batch = batch.to(trainer.device)
+            pred = trainer.model(batch)
+            loss_per_node = trainer.criterion(pred, batch.y)
+
+            if hasattr(batch, 'batch'):
+                batch_indices = batch.batch
+            else:
+                batch_indices = torch.zeros(batch.y.size(0), dtype=torch.long, device=batch.y.device)
+
+            unique_graphs = torch.unique(batch_indices)
+
+            for g in unique_graphs:
+                node_mask = batch_indices == g
+                masked_nodes = batch.mask[node_mask]
+                node_losses = loss_per_node[node_mask]
+                masked_losses = node_losses[masked_nodes]
+
+                if masked_losses.numel() == 0:
+                    continue
+
+                graph_loss = masked_losses.mean().item()
+
+                motif_label = "unknown"
+                if hasattr(batch, 'motif_id'):
+                    motif_tensor = batch.motif_id[g]
+                    motif_idx = int(motif_tensor.item())
+                    if 0 <= motif_idx < len(MOTIF_LABELS):
+                        motif_label = MOTIF_LABELS[motif_idx]
+
+                motif_losses[motif_label].append(graph_loss)
+                motif_counts[motif_label] += 1
+
+    metrics: Dict[str, Dict[str, float]] = {}
+    for motif_label in sorted(motif_losses.keys()):
+        losses = motif_losses[motif_label]
+        metrics[motif_label] = {
+            "num_graphs": motif_counts[motif_label],
+            "mean_masked_mse": float(np.mean(losses)),
+            "std_masked_mse": float(np.std(losses)) if len(losses) > 1 else 0.0
+        }
+
+    return metrics
+
+
+def _save_json(data: Dict, path: str):
+    output_path = Path(path)
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    with open(output_path, 'w') as f:
+        json.dump(data, f, indent=2)
+
+
 def split_data(graph_paths: List[Path], train_ratio: float = 0.8,
-               val_ratio: float = 0.1, seed: int = 42) -> Tuple[List[Path], List[Path], List[Path]]:
+               val_ratio: float = 0.1, seed: int = 42,
+               stratify_by_motif: bool = True,
+               equal_counts_per_motif: bool = False) -> Tuple[List[Path], List[Path], List[Path]]:
     """
     Split graph paths into train/val/test sets.
 
@@ -417,24 +523,71 @@ def split_data(graph_paths: List[Path], train_ratio: float = 0.8,
         train_ratio: Fraction for training
         val_ratio: Fraction for validation
         seed: Random seed
+        stratify_by_motif: Whether to split within motif groups
+        equal_counts_per_motif: If True, enforce equal per-motif counts in each
+            split (drops excess graphs per motif)
 
     Returns:
         Tuple of (train_paths, val_paths, test_paths)
     """
     rng = np.random.default_rng(seed)
-    n_graphs = len(graph_paths)
-    indices = rng.permutation(n_graphs)
 
-    n_train = int(n_graphs * train_ratio)
-    n_val = int(n_graphs * val_ratio)
+    if not stratify_by_motif:
+        n_graphs = len(graph_paths)
+        indices = rng.permutation(n_graphs)
 
-    train_indices = indices[:n_train]
-    val_indices = indices[n_train:n_train + n_val]
-    test_indices = indices[n_train + n_val:]
+        n_train = int(n_graphs * train_ratio)
+        n_val = int(n_graphs * val_ratio)
 
-    train_paths = [graph_paths[i] for i in train_indices]
-    val_paths = [graph_paths[i] for i in val_indices]
-    test_paths = [graph_paths[i] for i in test_indices]
+        train_indices = indices[:n_train]
+        val_indices = indices[n_train:n_train + n_val]
+        test_indices = indices[n_train + n_val:]
+
+        train_paths = [graph_paths[i] for i in train_indices]
+        val_paths = [graph_paths[i] for i in val_indices]
+        test_paths = [graph_paths[i] for i in test_indices]
+
+        return train_paths, val_paths, test_paths
+
+    motif_groups: Dict[str, List[Path]] = {}
+    for path in graph_paths:
+        motif = _infer_motif_label(path)
+        motif_groups.setdefault(motif, []).append(path)
+
+    if equal_counts_per_motif and motif_groups:
+        non_empty_counts = [len(paths) for paths in motif_groups.values() if paths]
+        usable_count = min(non_empty_counts) if non_empty_counts else 0
+    else:
+        usable_count = None
+
+    train_paths: List[Path] = []
+    val_paths: List[Path] = []
+    test_paths: List[Path] = []
+
+    for motif_paths in motif_groups.values():
+        if not motif_paths:
+            continue
+
+        shuffled = list(np.array(motif_paths)[rng.permutation(len(motif_paths))])
+
+        if equal_counts_per_motif and usable_count is not None:
+            shuffled = shuffled[:usable_count]
+
+        n = len(shuffled)
+        if n == 0:
+            continue
+
+        n_train = int(np.floor(n * train_ratio))
+        n_val = int(np.floor(n * val_ratio))
+        n_test = n - n_train - n_val
+
+        train_paths.extend(shuffled[:n_train])
+        val_paths.extend(shuffled[n_train:n_train + n_val])
+        test_paths.extend(shuffled[n_train + n_val:n_train + n_val + n_test])
+
+    train_paths = list(np.array(train_paths)[rng.permutation(len(train_paths))]) if train_paths else []
+    val_paths = list(np.array(val_paths)[rng.permutation(len(val_paths))]) if val_paths else []
+    test_paths = list(np.array(test_paths)[rng.permutation(len(test_paths))]) if test_paths else []
 
     return train_paths, val_paths, test_paths
 
@@ -444,7 +597,7 @@ def main():
     # Configuration
     SEED = 42
     DEVICE = 'cuda' if torch.cuda.is_available() else 'cpu'
-    BATCH_SIZE = 32
+    BATCH_SIZE = 32 
     NUM_EPOCHS = 100
     LEARNING_RATE = 1e-3
     MASK_PROB = 0.3
@@ -460,8 +613,17 @@ def main():
         print("Error: No graphs found. Please run graph_motif_generator.py first.")
         return
 
-    train_paths, val_paths, test_paths = split_data(all_graph_paths, seed=SEED)
+    train_paths, val_paths, test_paths = split_data(
+        all_graph_paths,
+        seed=SEED,
+        stratify_by_motif=True,
+        equal_counts_per_motif=True
+    )
     print(f"Split: {len(train_paths)} train, {len(val_paths)} val, {len(test_paths)} test")
+    print("Motif distribution per split:")
+    _print_split_stats("  Train", train_paths)
+    _print_split_stats("  Val", val_paths)
+    _print_split_stats("  Test", test_paths)
 
     # Create datasets
     train_dataset = GraphDataset(train_paths, mask_prob=MASK_PROB, seed=SEED)
@@ -475,6 +637,8 @@ def main():
                            shuffle=False, collate_fn=collate_fn)
     test_loader = DataLoader(test_dataset, batch_size=BATCH_SIZE,
                             shuffle=False, collate_fn=collate_fn)
+    train_eval_loader = DataLoader(train_dataset, batch_size=BATCH_SIZE,
+                                   shuffle=False, collate_fn=collate_fn)
 
     # Initialize model and trainer
     model = GCNModel(input_dim=2, hidden_dim=64, output_dim=1, dropout=0.2)
@@ -485,10 +649,18 @@ def main():
     best_val_loss = float('inf')
     patience = 10
     patience_counter = 0
+    best_epoch = -1
+    training_metrics = {
+        "train_loss": [],
+        "val_loss": []
+    }
 
     for epoch in tqdm(range(NUM_EPOCHS), desc="Training"):
         train_loss = trainer.train_epoch(train_loader)
         val_loss = trainer.validate(val_loader)
+
+        training_metrics["train_loss"].append(train_loss)
+        training_metrics["val_loss"].append(val_loss)
 
         if (epoch + 1) % 10 == 0:
             print(f"Epoch {epoch+1}/{NUM_EPOCHS} - Train Loss: {train_loss:.4f}, Val Loss: {val_loss:.4f}")
@@ -497,6 +669,7 @@ def main():
         if val_loss < best_val_loss:
             best_val_loss = val_loss
             patience_counter = 0
+            best_epoch = epoch
             trainer.save_model("checkpoints/gnn_model.pt")
         else:
             patience_counter += 1
@@ -509,11 +682,25 @@ def main():
     test_loss = trainer.validate(test_loader)
     print(f"Test Loss: {test_loss:.4f}")
 
+    training_metrics["best_val_loss"] = float(best_val_loss)
+    training_metrics["best_epoch"] = best_epoch + 1 if best_epoch >= 0 else None
+    training_metrics["test_loss"] = float(test_loss)
+    _save_json(training_metrics, "outputs/training_metrics.json")
+    print("Saved training metrics to outputs/training_metrics.json")
+
     # Extract and save activations
     print("\nExtracting activations...")
     trainer.extract_and_save_activations(train_loader, "outputs", "train")
     trainer.extract_and_save_activations(val_loader, "outputs", "val")
     trainer.extract_and_save_activations(test_loader, "outputs", "test")
+
+    motif_metrics = {
+        "train": _compute_motif_metrics(trainer, train_eval_loader),
+        "val": _compute_motif_metrics(trainer, val_loader),
+        "test": _compute_motif_metrics(trainer, test_loader)
+    }
+    _save_json(motif_metrics, "outputs/motif_metrics.json")
+    print("Saved motif metrics to outputs/motif_metrics.json")
 
     print("\nTraining complete!")
 

@@ -46,8 +46,8 @@ class GraphMotifGenerator:
         ]
 
     def _sample_weight(self) -> float:
-        """Sample a random edge weight from uniform distribution [0, 1]."""
-        return self.rng.uniform(0.0, 1.0)
+        """Sample a random edge weight from uniform distribution [-1, 1]."""
+        return self.rng.uniform(-1.0, 1.0)
 
     def _build_feedforward_loop(self) -> nx.DiGraph:
         """
