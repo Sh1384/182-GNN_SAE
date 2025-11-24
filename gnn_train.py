@@ -6,6 +6,7 @@ from partially observed synthetic graphs. Saves trained models and layer activat
 for downstream interpretability analysis.
 """
 
+import argparse
 import json
 import os
 import pickle
@@ -18,7 +19,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from torch.utils.data import Dataset, DataLoader
-from torch_geometric.nn import GCNConv
+from torch_geometric.nn import GCNConv, GATConv
 from torch_geometric.data import Data, Batch
 from tqdm import tqdm
 
@@ -228,6 +229,83 @@ class GCNModel(nn.Module):
         Returns:
             Tuple of (layer1_activations, layer2_activations)
         """
+        return self.layer1_activations, self.layer2_activations
+
+
+class GATModel(nn.Module):
+    """
+    Two-layer Graph Attention Network for node value prediction.
+
+    Architecture:
+        - Layer 1: Multi-head GATConv + ELU + Dropout
+        - Layer 2: Single-head GATConv that outputs scalar predictions
+    """
+
+    def __init__(self, input_dim: int = 2, hidden_dim: int = 64,
+                 output_dim: int = 1, dropout: float = 0.2,
+                 num_heads: int = 4, edge_dim: int = 1):
+        super(GATModel, self).__init__()
+
+        self.num_heads = num_heads
+        self.hidden_dim = hidden_dim
+        self.edge_dim = edge_dim
+
+        # Layer 1: Multi-head attention
+        self.conv1 = GATConv(
+            input_dim,
+            hidden_dim,
+            heads=num_heads,
+            dropout=dropout,
+            edge_dim=edge_dim
+        )
+
+        # Layer 2: Single-head attention for output
+        self.conv2 = GATConv(
+            hidden_dim * num_heads,
+            output_dim,
+            heads=1,
+            concat=False,
+            dropout=dropout,
+            edge_dim=edge_dim
+        )
+
+        self.dropout = dropout
+
+        # Storage for activations
+        self.layer1_activations = None
+        self.layer2_activations = None
+
+    def forward(self, data: Data, store_activations: bool = False) -> torch.Tensor:
+        x, edge_index = data.x, data.edge_index
+        edge_attr = getattr(data, 'edge_attr', None)
+
+        if edge_attr is not None and edge_attr.dim() == 1:
+            edge_attr = edge_attr.unsqueeze(-1)
+
+        h1 = self.conv1(
+            x,
+            edge_index,
+            edge_attr=edge_attr
+        )
+        h1 = F.elu(h1)
+
+        if store_activations:
+            self.layer1_activations = h1.detach()
+
+        h1 = F.dropout(h1, p=self.dropout, training=self.training)
+
+        h2 = self.conv2(
+            h1,
+            edge_index,
+            edge_attr=edge_attr
+        )
+
+        if store_activations:
+            self.layer2_activations = h2.detach()
+
+        return h2.squeeze(-1)
+
+    def get_activations(self) -> Tuple[torch.Tensor, torch.Tensor]:
         return self.layer1_activations, self.layer2_activations
 
 
@@ -592,7 +670,7 @@ def split_data(graph_paths: List[Path], train_ratio: float = 0.8,
     return train_paths, val_paths, test_paths
 
 
-def main():
+def main(model_type: str = "GCN"):
     """Main training pipeline."""
     # Configuration
     SEED = 42
@@ -603,6 +681,7 @@ def main():
     MASK_PROB = 0.3
 
     print(f"Using device: {DEVICE}")
+    print(f"Model type: {model_type}")
     print(f"Loading graphs from ./virtual_graphs/data/")
 
     # Load and split data
@@ -641,16 +720,37 @@ def main():
                                    shuffle=False, collate_fn=collate_fn)
 
     # Initialize model and trainer
-    model = GCNModel(input_dim=2, hidden_dim=64, output_dim=1, dropout=0.2)
+    model_type_upper = model_type.upper()
+    if model_type_upper == "GAT":
+        model = GATModel(
+            input_dim=2,
+            hidden_dim=16,
+            output_dim=1,
+            dropout=0.2,
+            num_heads=4,
+            edge_dim=1
+        )
+        model_name = "gat_model.pt"
+        print("\nInitialized GAT model (multi-head attention)")
+        print("  - Layer 1: 2 -> 16 x 4 heads = 64 dims")
+        print("  - Layer 2: 64 -> 1 (single-head)")
+    elif model_type_upper == "GCN":
+        model = GCNModel(input_dim=2, hidden_dim=64, output_dim=1, dropout=0.2)
+        model_name = "gnn_model.pt"
+        print("\nInitialized GCN model")
+    else:
+        raise ValueError(f"Unknown model type: {model_type}. Choose 'GCN' or 'GAT'.")
+
     trainer = GNNTrainer(model, device=DEVICE, learning_rate=LEARNING_RATE, seed=SEED)
 
     # Training loop
-    print("\nTraining GCN model...")
+    print(f"\nTraining {model_type_upper} model...")
     best_val_loss = float('inf')
     patience = 10
     patience_counter = 0
     best_epoch = -1
     training_metrics = {
+        "model_type": model_type_upper,
         "train_loss": [],
         "val_loss": []
     }
@@ -670,7 +770,7 @@ def main():
             best_val_loss = val_loss
             patience_counter = 0
             best_epoch = epoch
-            trainer.save_model("checkpoints/gnn_model.pt")
+            trainer.save_model(f"checkpoints/{model_name}")
         else:
             patience_counter += 1
             if patience_counter >= patience:
@@ -706,4 +806,13 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    parser = argparse.ArgumentParser(description="Train GNN (GCN or GAT) for motif prediction.")
+    parser.add_argument(
+        "--model_type",
+        type=str,
+        default="GCN",
+        choices=["GCN", "GAT", "gcn", "gat"],
+        help="Model architecture to train."
+    )
+    args = parser.parse_args()
+    main(model_type=args.model_type)

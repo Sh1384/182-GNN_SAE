@@ -5,6 +5,7 @@ Performs correlation analysis and causal ablation studies to identify
 SAE features that correspond to specific network motifs.
 """
 
+import json
 import os
 import pickle
 from pathlib import Path
@@ -365,35 +366,115 @@ class CausalAblationAnalyzer:
     GNN predictions in motif-specific ways.
     """
 
-    def __init__(self, gnn_model_path: str, sae_model_paths: Dict[str, str],
-                 device: str = 'cuda'):
+    def __init__(self, model_type: str = 'gcn', device: str = 'cuda'):
         """
-        Initialize the ablation analyzer.
+        Initialize the ablation analyzer with best models from hyperparameter sweeps.
 
         Args:
-            gnn_model_path: Path to trained GNN model
-            sae_model_paths: Dict mapping layer names to SAE model paths
+            model_type: Type of GNN model ('gcn' or 'gat')
             device: Device to run on
         """
         self.device = device
-        self.gnn_model = self._load_gnn_model(gnn_model_path)
+        self.model_type = model_type.lower()
+
+        # Set paths based on model type
+        if self.model_type == 'gat':
+            sweep_dir = Path("outputs/hyperparameter_sweep_gat")
+        else:  # Default to GCN
+            sweep_dir = Path("outputs/hyperparameter_sweep_gcn")
+
+        gnn_model_path = sweep_dir / "best_model.pt"
+        best_params_path = sweep_dir / "best_params.json"
+
+        # Load best hyperparameters from sweep
+        self.best_params = self._load_best_params(str(best_params_path))
+
+        # Load GNN model with best hyperparameters
+        self.gnn_model = self._load_gnn_model(str(gnn_model_path))
+
+        # Load SAE models from activations directory
+        sae_model_paths = {
+            "layer1": "checkpoints/sae_layer1.pt",
+            "layer2": "checkpoints/sae_layer2.pt"
+        }
         self.sae_models = {layer: self._load_sae_model(path)
                           for layer, path in sae_model_paths.items()}
 
-    def _load_gnn_model(self, path: str):
-        """Load trained GNN model."""
-        from gnn_train import GCNModel
+    def _load_best_params(self, params_path: str) -> Dict:
+        """
+        Load best hyperparameters from JSON file.
 
-        model = GCNModel(input_dim=2, hidden_dim=64, output_dim=1, dropout=0.2)
-        model.load_state_dict(torch.load(path, map_location=self.device))
+        Args:
+            params_path: Path to best_params.json from hyperparameter sweep
+
+        Returns:
+            Dictionary of best hyperparameters
+        """
+        params_path = Path(params_path)
+        if not params_path.exists():
+            raise FileNotFoundError(f"Best params file not found: {params_path}")
+
+        with open(params_path, 'r') as f:
+            best_params = json.load(f)
+
+        return best_params
+
+    def _load_gnn_model(self, model_path: str):
+        """
+        Load trained GNN model with best hyperparameters from sweep.
+
+        Args:
+            model_path: Path to saved model weights (best_model.pt)
+
+        Returns:
+            Loaded and initialized GNN model
+        """
+        from gnn_train import GCNModel, GATModel
+
+        model_path = Path(model_path)
+        if not model_path.exists():
+            raise FileNotFoundError(f"GNN model not found: {model_path}")
+
+        # Create model with best hyperparameters
+        if self.model_type == 'gat':
+            model = GATModel(
+                input_dim=2,
+                hidden_dim=int(self.best_params['hidden_dim']),
+                output_dim=1,
+                dropout=float(self.best_params['dropout']),
+                num_heads=int(self.best_params['num_heads']),
+                edge_dim=1
+            )
+        else:  # Default to GCN
+            model = GCNModel(
+                input_dim=2,
+                hidden_dim=int(self.best_params['hidden_dim']),
+                output_dim=1,
+                dropout=float(self.best_params['dropout'])
+            )
+
+        # Load saved weights
+        model.load_state_dict(torch.load(model_path, map_location=self.device))
         model.to(self.device)
         model.eval()
 
         return model
 
     def _load_sae_model(self, path: str):
-        """Load trained SAE model."""
+        """
+        Load trained SAE model.
+
+        Args:
+            path: Path to SAE checkpoint
+
+        Returns:
+            Loaded SAE model
+        """
         from sparse_autoencoder import SparseAutoencoder
+
+        path = Path(path)
+        if not path.exists():
+            raise FileNotFoundError(f"SAE model not found: {path}")
 
         checkpoint = torch.load(path, map_location=self.device)
         model = SparseAutoencoder(
@@ -442,29 +523,169 @@ class CausalAblationAnalyzer:
 
         return modified_activations
 
+    def _extract_layer_activations(self, graph_data, layer_name: str) -> torch.Tensor:
+        """
+        Load pre-computed layer activations from disk for a graph.
+
+        Args:
+            graph_data: PyG Data object (must have graph_idx attribute)
+            layer_name: Name of layer ('layer1' or 'layer2')
+
+        Returns:
+            Activations tensor for this graph
+        """
+        from sparse_autoencoder import load_activations
+
+        # Load all activations for the split from hyperparameter sweep directory
+        if self.model_type == 'gat':
+            sweep_dir = Path("outputs/hyperparameter_sweep_gat")
+        else:  # Default to GCN
+            sweep_dir = Path("outputs/hyperparameter_sweep_gcn")
+
+        activation_dir = sweep_dir / "activations" / layer_name
+
+        # For now, load train activations - can be extended to handle any split
+        try:
+            all_activations = load_activations(activation_dir, "train")
+        except ValueError:
+            # Try to load from val or test
+            try:
+                all_activations = load_activations(activation_dir, "val")
+            except ValueError:
+                all_activations = load_activations(activation_dir, "test")
+
+        # Get this graph's activations
+        # Assumes activations are concatenated in order of graphs in dataset
+        if hasattr(graph_data, 'graph_idx'):
+            graph_idx = graph_data.graph_idx
+        else:
+            # Default: assume it's the first graph
+            graph_idx = 0
+
+        # Extract this graph's activation (assuming one activation vector per graph)
+        activation = all_activations[graph_idx:graph_idx+1].to(self.device)
+
+        return activation
+
+    def _forward_with_modified_activations(self, graph_data,
+                                          layer_name: str,
+                                          modified_activations: torch.Tensor) -> torch.Tensor:
+        """
+        Forward pass with modified layer activations (no hooks).
+        Directly replaces layer computations.
+
+        Args:
+            graph_data: PyG Data object
+            layer_name: Which layer to modify ('layer1' or 'layer2')
+            modified_activations: Pre-computed modified activations
+
+        Returns:
+            Prediction from modified forward pass
+        """
+        self.gnn_model.eval()
+        x, edge_index = graph_data.x, graph_data.edge_index
+        edge_weight = getattr(graph_data, 'edge_attr', None)
+
+        with torch.no_grad():
+            graph_data = graph_data.to(self.device)
+            x = graph_data.x
+            edge_index = graph_data.edge_index
+            edge_weight = getattr(graph_data, 'edge_attr', None)
+
+            if layer_name == "layer1":
+                # Skip Layer 1, use modified activations directly
+                h1 = modified_activations
+                h1 = F.relu(h1)
+                h1 = F.dropout(h1, p=self.gnn_model.dropout,
+                              training=self.gnn_model.training)
+
+                # Layer 2
+                h2 = self.gnn_model.conv2(h1, edge_index, edge_weight=edge_weight)
+                pred = h2.squeeze(-1)
+
+            elif layer_name == "layer2":
+                # Layer 1 (normal)
+                h1 = self.gnn_model.conv1(x, edge_index, edge_weight=edge_weight)
+                h1 = F.relu(h1)
+                h1 = F.dropout(h1, p=self.gnn_model.dropout,
+                              training=self.gnn_model.training)
+
+                # Skip Layer 2, use modified activations
+                pred = modified_activations.squeeze(-1)
+
+            else:
+                raise ValueError(f"Unknown layer: {layer_name}")
+
+        return pred
+
     def compute_ablation_effect(self, graph_data,
                                 feature_idx: int,
                                 layer_name: str,
                                 ablation_type: str = 'zero') -> Tuple[float, float]:
         """
-        Compute effect of ablating a feature on prediction loss.
+        Compute causal effect of ablating a SAE feature on GNN predictions.
+
+        Workflow:
+        1. Load original layer activations from disk
+        2. Encode to SAE latent space
+        3. Ablate the specified feature
+        4. Decode back to activation space
+        5. Compare baseline vs ablated loss
 
         Args:
             graph_data: PyG Data object
-            feature_idx: Feature to ablate
-            layer_name: Layer name
-            ablation_type: Ablation type
+            feature_idx: Index of SAE feature to ablate
+            layer_name: 'layer1' or 'layer2'
+            ablation_type: 'zero' (set to 0) or 'amplify' (multiply by 2)
 
         Returns:
             Tuple of (baseline_loss, ablated_loss)
         """
-        # This is a simplified version - full implementation would require
-        # intervening on GNN forward pass with modified activations
+        if layer_name not in self.sae_models:
+            raise ValueError(f"No SAE model for {layer_name}")
 
-        # For now, we'll compute the difference in reconstruction loss
-        # as a proxy for prediction effect
+        self.gnn_model.eval()
 
-        raise NotImplementedError("Full causal intervention requires GNN architecture modification")
+        # 1. Load original activations at target layer from disk
+        original_activations = self._extract_layer_activations(
+            graph_data, layer_name
+        )
+
+        # 2. Encode to SAE latent space and ablate
+        sae_model = self.sae_models[layer_name]
+        with torch.no_grad():
+            z_original = sae_model.encode(original_activations)
+
+            # Ablate feature in latent space
+            z_ablated = z_original.clone()
+            if ablation_type == 'zero':
+                z_ablated[:, feature_idx] = 0
+            elif ablation_type == 'amplify':
+                z_ablated[:, feature_idx] = 2 * z_ablated[:, feature_idx]
+            else:
+                raise ValueError(f"Unknown ablation type: {ablation_type}")
+
+            # Decode back to activation space
+            modified_activations = sae_model.decode(z_ablated)
+
+        # 3. Compute baseline loss (original forward pass)
+        with torch.no_grad():
+            baseline_pred = self.gnn_model(graph_data.to(self.device))
+            baseline_loss = F.mse_loss(
+                baseline_pred,
+                graph_data.y.to(self.device)
+            )
+
+        # 4. Compute ablated loss (with modified activations)
+        ablated_pred = self._forward_with_modified_activations(
+            graph_data, layer_name, modified_activations
+        )
+        ablated_loss = F.mse_loss(
+            ablated_pred,
+            graph_data.y.to(self.device)
+        )
+
+        return baseline_loss.item(), ablated_loss.item()
 
 
 def analyze_layer(layer_name: str, latent_dim: int):

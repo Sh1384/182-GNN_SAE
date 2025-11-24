@@ -5,6 +5,8 @@ Trains sparse autoencoders on frozen GNN layer activations to discover
 interpretable features that correlate with network motifs.
 """
 
+import argparse
+import json
 import os
 from pathlib import Path
 from typing import Tuple, List, Optional
@@ -26,11 +28,14 @@ class SparseAutoencoder(nn.Module):
         - Decoder: Linear(latent_dim -> input_dim)
 
     Loss:
-        L = ||x - x_hat||_2^2 + lambda * ||z||_1
+        L = ||x - x_hat||_2^2 + lambda * Sparsity(z)
+        where Sparsity is either L1 or Tail-L1 (Top-K)
     """
 
     def __init__(self, input_dim: int = 64, latent_dim: int = 512,
-                 sparsity_lambda: float = 1e-3):
+                 sparsity_lambda: float = 1e-3,
+                 sparsity_type: str = "l1",
+                 topk_ratio: float = 0.1):
         """
         Initialize the sparse autoencoder.
 
@@ -38,12 +43,16 @@ class SparseAutoencoder(nn.Module):
             input_dim: Dimension of input activations
             latent_dim: Dimension of latent representation
             sparsity_lambda: Sparsity penalty weight
+            sparsity_type: 'l1' or 'topk'
+            topk_ratio: Fraction of latent dims kept when using topk penalty
         """
         super(SparseAutoencoder, self).__init__()
 
         self.input_dim = input_dim
         self.latent_dim = latent_dim
         self.sparsity_lambda = sparsity_lambda
+        self.sparsity_type = sparsity_type.lower()
+        self.topk_ratio = max(0.0, min(1.0, topk_ratio))
 
         # Encoder
         self.encoder = nn.Linear(input_dim, latent_dim)
@@ -102,6 +111,23 @@ class SparseAutoencoder(nn.Module):
         x_hat = self.decode(z)
         return x_hat, z
 
+    def _topk_sparsity(self, z: torch.Tensor) -> torch.Tensor:
+        """Compute sparsity penalty that penalizes activations outside top-k."""
+        if self.topk_ratio <= 0:
+            return torch.mean(torch.abs(z))
+
+        k = int(max(1, round(self.latent_dim * self.topk_ratio)))
+        k = min(k, self.latent_dim)
+
+        if k >= self.latent_dim:
+            return torch.zeros(1, device=z.device, dtype=z.dtype)
+
+        abs_z = torch.abs(z)
+        topk_vals, _ = torch.topk(abs_z, k, dim=1, largest=True, sorted=False)
+        tail_sum = abs_z.sum(dim=1) - topk_vals.sum(dim=1)
+        sparsity_loss = tail_sum / max(self.latent_dim - k, 1)
+        return sparsity_loss.mean()
+
     def loss(self, x: torch.Tensor, x_hat: torch.Tensor,
              z: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
         """
@@ -118,8 +144,11 @@ class SparseAutoencoder(nn.Module):
         # Reconstruction loss (MSE)
         recon_loss = F.mse_loss(x_hat, x)
 
-        # Sparsity loss (L1 penalty on latent)
-        sparsity_loss = torch.mean(torch.abs(z))
+        # Sparsity loss
+        if self.sparsity_type == "topk":
+            sparsity_loss = self._topk_sparsity(z)
+        else:
+            sparsity_loss = torch.mean(torch.abs(z))
 
         # Total loss
         total_loss = recon_loss + self.sparsity_lambda * sparsity_loss
@@ -242,7 +271,9 @@ class SAETrainer:
             'model_state_dict': self.model.state_dict(),
             'input_dim': self.model.input_dim,
             'latent_dim': self.model.latent_dim,
-            'sparsity_lambda': self.model.sparsity_lambda
+            'sparsity_lambda': self.model.sparsity_lambda,
+            'sparsity_type': self.model.sparsity_type,
+            'topk_ratio': self.model.topk_ratio
         }, path)
         print(f"Model saved to {path}")
 
@@ -333,6 +364,8 @@ def train_sae_for_layer(layer_name: str, layer_idx: int,
                         input_dim: int = 64,
                         latent_dim: int = 512,
                         sparsity_lambda: float = 1e-3,
+                        sparsity_type: str = "l1",
+                        topk_ratio: float = 0.1,
                         num_epochs: int = 100,
                         batch_size: int = 256,
                         learning_rate: float = 1e-3,
@@ -354,7 +387,7 @@ def train_sae_for_layer(layer_name: str, layer_idx: int,
         seed: Random seed
     """
     print(f"\n{'='*60}")
-    print(f"Training SAE for {layer_name} (dim={input_dim} -> {latent_dim})")
+    print(f"Training SAE for {layer_name} (dim={input_dim} -> {latent_dim}) [{sparsity_type}]")
     print(f"{'='*60}")
 
     # Load activations
@@ -383,8 +416,10 @@ def train_sae_for_layer(layer_name: str, layer_idx: int,
 
     # Initialize model and trainer
     model = SparseAutoencoder(input_dim=input_dim,
-                             latent_dim=latent_dim,
-                             sparsity_lambda=sparsity_lambda)
+                              latent_dim=latent_dim,
+                              sparsity_lambda=sparsity_lambda,
+                              sparsity_type=sparsity_type,
+                              topk_ratio=topk_ratio)
     trainer = SAETrainer(model, device=device,
                         learning_rate=learning_rate, seed=seed)
 
@@ -430,33 +465,81 @@ def train_sae_for_layer(layer_name: str, layer_idx: int,
     print(f"\n{layer_name} training complete!")
 
 
+def _load_best_params(model_type: str = 'gcn') -> dict:
+    """
+    Load best hyperparameters from hyperparameter sweep.
+
+    Args:
+        model_type: Type of GNN model ('gcn' or 'gat')
+
+    Returns:
+        Dictionary of best hyperparameters
+    """
+    if model_type.lower() == 'gat':
+        params_path = Path("outputs/hyperparameter_sweep_gat/best_params.json")
+    else:
+        params_path = Path("outputs/hyperparameter_sweep_gcn/best_params.json")
+
+    if not params_path.exists():
+        print(f"Warning: Best params not found at {params_path}")
+        print(f"Using default hidden_dim=64 for layer1, 1 for layer2")
+        return {"hidden_dim": 64}
+
+    with open(params_path, 'r') as f:
+        best_params = json.load(f)
+
+    return best_params
+
+
 def main():
     """Main training pipeline for SAEs."""
-    # Configuration
+    parser = argparse.ArgumentParser(description="Train Sparse Autoencoders on GNN activations.")
+    parser.add_argument("--model_type", type=str, default="gcn",
+                        choices=["gcn", "gat"],
+                        help="Type of GNN model to use for SAE training.")
+    parser.add_argument("--sparsity_type", type=str, default="l1",
+                        choices=["l1", "topk", "L1", "TOPK"],
+                        help="Type of sparsity regularization to use.")
+    parser.add_argument("--topk_ratio", type=float, default=0.1,
+                        help="Fraction of latent dimensions kept when using top-k sparsity.")
+    parser.add_argument("--epochs", type=int, default=100, help="Number of training epochs.")
+    parser.add_argument("--batch_size", type=int, default=256, help="Batch size for SAE training.")
+    parser.add_argument("--learning_rate", type=float, default=1e-3, help="Learning rate.")
+    parser.add_argument("--sparsity_lambda", type=float, default=1e-3, help="Sparsity weight lambda.")
+    args = parser.parse_args()
+
     SEED = 42
     DEVICE = 'cuda' if torch.cuda.is_available() else 'cpu'
-    NUM_EPOCHS = 100
-    BATCH_SIZE = 256
-    LEARNING_RATE = 1e-3
-    SPARSITY_LAMBDA = 1e-3
 
+    sparsity_type = args.sparsity_type.lower()
     print(f"Using device: {DEVICE}")
+    print(f"Sparsity config -> type: {sparsity_type}, topk_ratio: {args.topk_ratio}")
+    print(f"Training SAE for {args.model_type.upper()} model")
+
+    # Load best hyperparameters for the model
+    best_params = _load_best_params(args.model_type)
+    layer1_input_dim = int(best_params.get('hidden_dim', 64))
+
+    print(f"\nLoaded best hyperparameters:")
+    print(f"  Layer 1 input_dim (hidden_dim): {layer1_input_dim}")
 
     # Check if activations exist
     if not Path("outputs/activations").exists():
         print("Error: No activations found. Please run gnn_train.py first.")
         return
 
-    # Train SAE for Layer 1 (64-dim activations)
+    # Train SAE for Layer 1 (hidden_dim-dim activations from best GNN model)
     train_sae_for_layer(
         layer_name="layer1",
         layer_idx=1,
-        input_dim=64,
+        input_dim=layer1_input_dim,
         latent_dim=512,
-        sparsity_lambda=SPARSITY_LAMBDA,
-        num_epochs=NUM_EPOCHS,
-        batch_size=BATCH_SIZE,
-        learning_rate=LEARNING_RATE,
+        sparsity_lambda=args.sparsity_lambda,
+        sparsity_type=sparsity_type,
+        topk_ratio=args.topk_ratio,
+        num_epochs=args.epochs,
+        batch_size=args.batch_size,
+        learning_rate=args.learning_rate,
         device=DEVICE,
         seed=SEED
     )
@@ -467,10 +550,12 @@ def main():
         layer_idx=2,
         input_dim=1,
         latent_dim=32,  # Smaller latent dim for 1-d input
-        sparsity_lambda=SPARSITY_LAMBDA,
-        num_epochs=NUM_EPOCHS,
-        batch_size=BATCH_SIZE,
-        learning_rate=LEARNING_RATE,
+        sparsity_lambda=args.sparsity_lambda,
+        sparsity_type=sparsity_type,
+        topk_ratio=args.topk_ratio,
+        num_epochs=args.epochs,
+        batch_size=args.batch_size,
+        learning_rate=args.learning_rate,
         device=DEVICE,
         seed=SEED + 1
     )
