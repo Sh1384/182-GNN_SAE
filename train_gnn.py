@@ -42,7 +42,7 @@ def train_with_metrics(num_epochs: int = 20, device: str = 'cuda',
     test_loader = DataLoader(test_dataset, batch_size=batch_size,
                             shuffle=False, collate_fn=collate_fn)
     
-    model = GCNModel(input_dim=2, hidden_dim=64, output_dim=1, dropout=0.2)
+    model = GCNModel(input_dim=2, hidden_dim1=128, hidden_dim2=64, output_dim=1, dropout=0.2)
     trainer = GNNTrainer(model, device=device, learning_rate=learning_rate, seed=seed)
     
     metrics = {

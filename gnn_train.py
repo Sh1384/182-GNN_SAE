@@ -161,38 +161,42 @@ class GraphDataset(Dataset):
 
 class GCNModel(nn.Module):
     """
-    Two-layer Graph Convolutional Network for node value prediction.
+    Three-layer Graph Convolutional Network for node value prediction.
 
     Architecture:
-        - Layer 1: GCNConv(2 -> 64) + ReLU + Dropout
-        - Layer 2: GCNConv(64 -> 1)
+        - Layer 1: GCNConv(2 -> 128) + ReLU + Dropout (1-hop neighborhoods)
+        - Layer 2: GCNConv(128 -> 64) + ReLU + Dropout (2-hop neighborhoods)
+        - Layer 3: GCNConv(64 -> 1) (3-hop neighborhoods, final prediction)
     """
 
-    def __init__(self, input_dim: int = 2, hidden_dim: int = 64,
-                 output_dim: int = 1, dropout: float = 0.2):
+    def __init__(self, input_dim: int = 2, hidden_dim1: int = 128,
+                 hidden_dim2: int = 64, output_dim: int = 1, dropout: float = 0.2):
         """
         Initialize the GCN model.
 
         Args:
             input_dim: Input feature dimension
-            hidden_dim: Hidden layer dimension
+            hidden_dim1: First hidden layer dimension
+            hidden_dim2: Second hidden layer dimension
             output_dim: Output dimension
             dropout: Dropout probability
         """
         super(GCNModel, self).__init__()
 
         # Disable internal normalization to support signed edge weights
-        self.conv1 = GCNConv(input_dim, hidden_dim, normalize=False)
-        self.conv2 = GCNConv(hidden_dim, output_dim, normalize=False)
+        self.conv1 = GCNConv(input_dim, hidden_dim1, normalize=False)
+        self.conv2 = GCNConv(hidden_dim1, hidden_dim2, normalize=False)
+        self.conv3 = GCNConv(hidden_dim2, output_dim, normalize=False)
         self.dropout = dropout
 
         # Storage for activations
         self.layer1_activations = None
         self.layer2_activations = None
+        self.layer3_activations = None
 
     def forward(self, data: Data, store_activations: bool = False) -> torch.Tensor:
         """
-        Forward pass through the GCN.
+        Forward pass through the 3-layer GCN.
 
         Args:
             data: PyG Data object
@@ -204,7 +208,7 @@ class GCNModel(nn.Module):
         x, edge_index = data.x, data.edge_index
         edge_weight = getattr(data, 'edge_attr', None)
 
-        # Layer 1: GCNConv + ReLU + Dropout
+        # Layer 1: GCNConv + ReLU + Dropout (1-hop neighborhoods)
         h1 = self.conv1(x, edge_index, edge_weight=edge_weight)
         h1 = F.relu(h1)
 
@@ -213,22 +217,31 @@ class GCNModel(nn.Module):
 
         h1 = F.dropout(h1, p=self.dropout, training=self.training)
 
-        # Layer 2: GCNConv
+        # Layer 2: GCNConv + ReLU + Dropout (2-hop neighborhoods)
         h2 = self.conv2(h1, edge_index, edge_weight=edge_weight)
+        h2 = F.relu(h2)
 
         if store_activations:
             self.layer2_activations = h2.detach()
 
-        return h2.squeeze(-1)
+        h2 = F.dropout(h2, p=self.dropout, training=self.training)
 
-    def get_activations(self) -> Tuple[torch.Tensor, torch.Tensor]:
+        # Layer 3: GCNConv (3-hop neighborhoods, final prediction)
+        h3 = self.conv3(h2, edge_index, edge_weight=edge_weight)
+
+        if store_activations:
+            self.layer3_activations = h3.detach()
+
+        return h3.squeeze(-1)
+
+    def get_activations(self) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
         """
         Get stored layer activations.
 
         Returns:
-            Tuple of (layer1_activations, layer2_activations)
+            Tuple of (layer1_activations, layer2_activations, layer3_activations)
         """
-        return self.layer1_activations, self.layer2_activations
+        return self.layer1_activations, self.layer2_activations, self.layer3_activations
 
 
 class GNNTrainer:
@@ -355,8 +368,10 @@ class GNNTrainer:
 
         layer1_dir = Path(output_dir) / "activations" / "layer1" / split_name
         layer2_dir = Path(output_dir) / "activations" / "layer2" / split_name
+        layer3_dir = Path(output_dir) / "activations" / "layer3" / split_name
         layer1_dir.mkdir(parents=True, exist_ok=True)
         layer2_dir.mkdir(parents=True, exist_ok=True)
+        layer3_dir.mkdir(parents=True, exist_ok=True)
 
         graph_idx = 0
 
@@ -366,7 +381,7 @@ class GNNTrainer:
 
                 # Forward pass with activation storage
                 _ = self.model(batch, store_activations=True)
-                h1, h2 = self.model.get_activations()
+                h1, h2, h3 = self.model.get_activations()
 
                 # Split batch back into individual graphs
                 if hasattr(batch, 'batch'):
@@ -379,16 +394,19 @@ class GNNTrainer:
 
                         h1_graph = h1[mask].cpu()
                         h2_graph = h2[mask].cpu()
+                        h3_graph = h3[mask].cpu()
 
                         # Save activations
                         torch.save(h1_graph, layer1_dir / f"graph_{graph_idx}.pt")
                         torch.save(h2_graph, layer2_dir / f"graph_{graph_idx}.pt")
+                        torch.save(h3_graph, layer3_dir / f"graph_{graph_idx}.pt")
 
                         graph_idx += 1
                 else:
                     # Single graph
                     torch.save(h1.cpu(), layer1_dir / f"graph_{graph_idx}.pt")
                     torch.save(h2.cpu(), layer2_dir / f"graph_{graph_idx}.pt")
+                    torch.save(h3.cpu(), layer3_dir / f"graph_{graph_idx}.pt")
                     graph_idx += 1
 
         print(f"Saved activations for {graph_idx} graphs to {output_dir}/activations/")
@@ -641,7 +659,7 @@ def main():
                                    shuffle=False, collate_fn=collate_fn)
 
     # Initialize model and trainer
-    model = GCNModel(input_dim=2, hidden_dim=64, output_dim=1, dropout=0.2)
+    model = GCNModel(input_dim=2, hidden_dim1=128, hidden_dim2=64, output_dim=1, dropout=0.2)
     trainer = GNNTrainer(model, device=DEVICE, learning_rate=LEARNING_RATE, seed=SEED)
 
     # Training loop
