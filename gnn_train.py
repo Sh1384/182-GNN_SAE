@@ -4,6 +4,8 @@ GNN Training Module for Node Value Prediction
 Trains a two-layer Graph Convolutional Network (GCN) to predict missing node values
 from partially observed synthetic graphs. Saves trained models and layer activations
 for downstream interpretability analysis.
+
+GAT is also here
 """
 
 import argparse
