@@ -12,6 +12,7 @@ from typing import Dict, List, Tuple, Optional
 
 import networkx as nx
 import numpy as np
+import pandas as pd
 from tqdm import tqdm
 
 
@@ -175,95 +176,159 @@ class GraphMotifGenerator:
         return G_relabeled
 
     def generate_single_motif_graph(self, motif_type: str,
-                                     target_size: Optional[int] = None) -> nx.DiGraph:
+                                     target_size: Optional[int] = None) -> Tuple[nx.DiGraph, pd.DataFrame]:
         """
-        Generate a single graph containing one motif type.
+        Generate a 10-node graph with multiple instances of one motif type.
 
         Args:
             motif_type: Type of motif to generate
-            target_size: Target number of nodes (3-4), randomly chosen if None
+            target_size: Target number of nodes (always 10, parameter kept for compatibility)
 
         Returns:
-            DiGraph containing the specified motif
+            Tuple of (graph, metadata_df)
+            - graph: DiGraph containing multiple instances of the specified motif
+            - metadata_df: DataFrame with one-hot encoded motif membership per node
         """
-        if motif_type == "feedforward_loop":
-            G = self._build_feedforward_loop()
-        elif motif_type == "feedback_loop":
-            G = self._build_feedback_loop()
-        elif motif_type == "single_input_module":
-            G = self._build_single_input_module()
-        elif motif_type == "cascade":
-            G = self._build_cascade()
-        else:
-            raise ValueError(f"Unknown motif type: {motif_type}")
+        TARGET_SIZE = 10
+        G_combined = nx.DiGraph()
+        node_to_motifs = {}
+        node_id = 0
 
-        # Expand to target size if specified
-        if target_size is None:
-            target_size = self.rng.integers(3, 5)  # 3-4 nodes
+        # Keep adding complete motif instances until we can't fit more
+        while node_id < TARGET_SIZE:
+            # Build one instance of the motif
+            if motif_type == "feedforward_loop":
+                motif_instance = self._build_feedforward_loop()
+            elif motif_type == "feedback_loop":
+                motif_instance = self._build_feedback_loop()
+            elif motif_type == "single_input_module":
+                motif_instance = self._build_single_input_module()
+            elif motif_type == "cascade":
+                motif_instance = self._build_cascade()
+            else:
+                raise ValueError(f"Unknown motif type: {motif_type}")
 
-        G = self._expand_graph(G, target_size)
-        G = self._relabel_nodes_sequentially(G)
+            motif_size = len(motif_instance.nodes())
+
+            # Check if adding this instance would exceed 10 nodes
+            if node_id + motif_size > TARGET_SIZE:
+                break
+
+            # Add nodes from this motif instance
+            node_mapping = {}
+            for old_node in sorted(motif_instance.nodes()):
+                node_mapping[old_node] = node_id
+                G_combined.add_node(node_id, label=f"node_{node_id}")
+                node_to_motifs[node_id] = motif_type
+                node_id += 1
+
+            # Add edges from this motif instance
+            for u, v in motif_instance.edges():
+                new_u = node_mapping[u]
+                new_v = node_mapping[v]
+                G_combined.add_edge(new_u, new_v, weight=self._sample_weight())
+
+        # Pad with isolated nodes to reach exactly 10
+        while node_id < TARGET_SIZE:
+            G_combined.add_node(node_id, label=f"node_{node_id}")
+            node_to_motifs[node_id] = None
+            node_id += 1
+
+        # Create metadata DataFrame
+        n_nodes = TARGET_SIZE
+        metadata = {mt: [0] * n_nodes for mt in self.motif_types}
+
+        for node_id, node_motif in node_to_motifs.items():
+            if node_motif is not None:
+                metadata[node_motif][node_id] = 1
+
+        metadata_df = pd.DataFrame(metadata, index=[f'node_{i}' for i in range(n_nodes)])
 
         # Store motif type as graph attribute
-        G.graph['motif_type'] = motif_type
+        G_combined.graph['motif_type'] = motif_type
 
-        return G
+        return G_combined, metadata_df
 
-    def generate_single_motif_graphs(self, n_per_type: int = 1000) -> Dict[str, List[nx.DiGraph]]:
+    def generate_single_motif_graphs(self, n_per_type: int = 1000,
+                                    start_idx: int = 0) -> Tuple[List[nx.DiGraph], int]:
         """
         Generate single-motif graphs for all motif types.
 
         Args:
             n_per_type: Number of graphs to generate per motif type
+            start_idx: Starting graph ID for sequential numbering
 
         Returns:
-            Dictionary mapping motif type to list of generated graphs
+            Tuple of (list of graphs, next_graph_idx)
         """
         print("Generating single-motif graphs...")
-        graphs = {}
+
+        # Create output directories
+        raw_graphs_dir = self.base_dir / "all_graphs" / "raw_graphs"
+        metadata_dir = self.base_dir / "all_graphs" / "graph_motif_metadata"
+        raw_graphs_dir.mkdir(parents=True, exist_ok=True)
+        metadata_dir.mkdir(parents=True, exist_ok=True)
+
+        all_graphs = []
+        graph_idx = start_idx
 
         for motif_type in self.motif_types:
-            motif_dir = self.base_dir / "single_motif_graphs" / motif_type
-            motif_dir.mkdir(parents=True, exist_ok=True)
-
-            motif_graphs = []
             for i in tqdm(range(n_per_type), desc=f"Generating {motif_type}"):
-                G = self.generate_single_motif_graph(motif_type)
+                G, metadata_df = self.generate_single_motif_graph(motif_type)
 
                 # Save graph
-                output_path = motif_dir / f"graph_{i}.pkl"
-                with open(output_path, 'wb') as f:
+                graph_path = raw_graphs_dir / f"graph_{graph_idx}.pkl"
+                with open(graph_path, 'wb') as f:
                     pickle.dump(G, f)
 
-                motif_graphs.append(G)
+                # Save metadata CSV
+                metadata_path = metadata_dir / f"graph_{graph_idx}_metadata.csv"
+                metadata_df.to_csv(metadata_path)
 
-            graphs[motif_type] = motif_graphs
+                all_graphs.append(G)
+                graph_idx += 1
 
-        print(f"Generated {n_per_type} graphs for each of {len(self.motif_types)} motif types")
-        return graphs
+        print(f"Generated {n_per_type * len(self.motif_types)} single-motif graphs (IDs {start_idx}-{graph_idx-1})")
+        return all_graphs, graph_idx
 
     def _merge_motifs(self, motifs: List[nx.DiGraph],
+                      motif_types: List[str],
                       target_size: int,
-                      extra_edge_prob: float = 0.25) -> nx.DiGraph:
+                      extra_edge_prob: float = 0.25) -> Tuple[nx.DiGraph, Dict[int, List[str]]]:
         """
+        DEPRECATED: This method is no longer used as graph generation now creates
+        10-node graphs directly in generate_single_motif_graph() and
+        generate_mixed_motif_graph(). Kept for backward compatibility.
+
         Merge multiple motifs into a single graph with random interconnections.
 
         Args:
             motifs: List of motif graphs to merge
+            motif_types: List of motif type names corresponding to each motif
             target_size: Target number of nodes for final graph
             extra_edge_prob: Probability of adding extra random edges
 
         Returns:
-            Merged graph containing all motifs
+            Tuple of (merged_graph, node_motif_mapping)
+            - merged_graph: Combined graph
+            - node_motif_mapping: Dict mapping old node IDs to list of motif types
         """
         # Create combined graph
         G_combined = nx.DiGraph()
         node_offset = 0
+        node_to_motifs = {}
 
         # Add all motifs with offset node labels
-        for motif in motifs:
+        for motif, motif_type in zip(motifs, motif_types):
             mapping = {old: old + node_offset for old in motif.nodes()}
             motif_relabeled = nx.relabel_nodes(motif, mapping)
+
+            # Track which nodes belong to which motifs (before relabeling)
+            for old_node in motif.nodes():
+                new_node = mapping[old_node]
+                if new_node not in node_to_motifs:
+                    node_to_motifs[new_node] = []
+                node_to_motifs[new_node].append(motif_type)
 
             G_combined = nx.compose(G_combined, motif_relabeled)
             node_offset += len(motif.nodes())
@@ -273,6 +338,7 @@ class GraphMotifGenerator:
         if current_size < target_size:
             for i in range(current_size, target_size):
                 G_combined.add_node(i, label=f"node_{i}")
+                node_to_motifs[i] = []  # Isolated nodes don't belong to any motif
 
         # Add random interconnections between motifs
         nodes = list(G_combined.nodes())
@@ -283,67 +349,142 @@ class GraphMotifGenerator:
                         G_combined.add_edge(nodes[i], nodes[j],
                                            weight=self._sample_weight())
 
+        # Create mapping for relabeled nodes
+        old_nodes = sorted(G_combined.nodes())
+        node_mapping = {old: new for new, old in enumerate(old_nodes)}
+
+        # Update node_to_motifs with new labels
+        node_to_motifs_relabeled = {node_mapping[old]: motifs
+                                     for old, motifs in node_to_motifs.items()}
+
         # Relabel sequentially
         G_combined = self._relabel_nodes_sequentially(G_combined)
 
-        return G_combined
+        return G_combined, node_to_motifs_relabeled
 
-    def generate_mixed_motif_graph(self) -> nx.DiGraph:
+    def generate_mixed_motif_graph(self) -> Tuple[nx.DiGraph, pd.DataFrame]:
         """
-        Generate a graph containing 2-3 randomly embedded motifs.
+        Generate a 10-node graph with instances of different motif types.
 
         Returns:
-            DiGraph containing multiple motifs with random interconnections
+            Tuple of (graph, metadata_df)
+            - graph: DiGraph containing multiple motif instances with random interconnections
+            - metadata_df: DataFrame with one-hot encoded motif membership per node
         """
-        # Choose 2-3 motifs randomly
-        n_motifs = self.rng.integers(2, 4)  # 2 or 3 motifs
-        chosen_motifs = self.rng.choice(self.motif_types, size=n_motifs, replace=True)
+        TARGET_SIZE = 10
 
-        # Generate individual motifs
-        motifs = []
+        # Choose 2-3 different motif types
+        n_motif_types = self.rng.integers(2, 4)
+        chosen_motifs = self.rng.choice(self.motif_types, size=n_motif_types, replace=True)
+
+        G_combined = nx.DiGraph()
+        node_to_motifs = {}
+        node_id = 0
+
+        # Add instances of each chosen motif type
         for motif_type in chosen_motifs:
-            motif = self.generate_single_motif_graph(motif_type, target_size=None)
-            motifs.append(motif)
+            if node_id >= TARGET_SIZE:
+                break
 
-        # Choose target size for combined graph
-        target_size = self.rng.integers(6, 13)  # 6-12 nodes
+            # Build one instance
+            if motif_type == "feedforward_loop":
+                motif_instance = self._build_feedforward_loop()
+            elif motif_type == "feedback_loop":
+                motif_instance = self._build_feedback_loop()
+            elif motif_type == "single_input_module":
+                motif_instance = self._build_single_input_module()
+            elif motif_type == "cascade":
+                motif_instance = self._build_cascade()
+            else:
+                raise ValueError(f"Unknown motif type: {motif_type}")
 
-        # Merge motifs with random interconnections
+            motif_size = len(motif_instance.nodes())
+
+            # Check if it fits
+            if node_id + motif_size > TARGET_SIZE:
+                break
+
+            # Add nodes and edges
+            node_mapping = {}
+            for old_node in sorted(motif_instance.nodes()):
+                node_mapping[old_node] = node_id
+                G_combined.add_node(node_id, label=f"node_{node_id}")
+                node_to_motifs[node_id] = motif_type
+                node_id += 1
+
+            for u, v in motif_instance.edges():
+                new_u = node_mapping[u]
+                new_v = node_mapping[v]
+                G_combined.add_edge(new_u, new_v, weight=self._sample_weight())
+
+        # Pad with isolated nodes
+        while node_id < TARGET_SIZE:
+            G_combined.add_node(node_id, label=f"node_{node_id}")
+            node_to_motifs[node_id] = None
+            node_id += 1
+
+        # Add random interconnections (20-30% probability)
         extra_edge_prob = self.rng.uniform(0.2, 0.3)
-        G = self._merge_motifs(motifs, target_size, extra_edge_prob)
+        nodes = list(G_combined.nodes())
+        for i in nodes:
+            for j in nodes:
+                if i != j and not G_combined.has_edge(i, j):
+                    if self.rng.random() < extra_edge_prob:
+                        G_combined.add_edge(i, j, weight=self._sample_weight())
+
+        # Create metadata
+        metadata = {mt: [0] * TARGET_SIZE for mt in self.motif_types}
+        for node_id, node_motif in node_to_motifs.items():
+            if node_motif is not None:
+                metadata[node_motif][node_id] = 1
+
+        metadata_df = pd.DataFrame(metadata, index=[f'node_{i}' for i in range(TARGET_SIZE)])
 
         # Store motif composition
-        G.graph['motif_composition'] = list(chosen_motifs)
+        G_combined.graph['motif_composition'] = list(chosen_motifs)
 
-        return G
+        return G_combined, metadata_df
 
-    def generate_mixed_motif_graphs(self, n_graphs: int = 1000) -> List[nx.DiGraph]:
+    def generate_mixed_motif_graphs(self, n_graphs: int = 1000,
+                                   start_idx: int = 0) -> Tuple[List[nx.DiGraph], int]:
         """
-        Generate mixed-motif graphs.
+        Generate mixed-motif graphs with metadata.
 
         Args:
             n_graphs: Number of mixed-motif graphs to generate
+            start_idx: Starting graph ID for sequential numbering
 
         Returns:
-            List of generated mixed-motif graphs
+            Tuple of (list of graphs, next_graph_idx)
         """
         print("Generating mixed-motif graphs...")
-        output_dir = self.base_dir / "mixed_motif_graphs"
-        output_dir.mkdir(parents=True, exist_ok=True)
+
+        # Create output directories
+        raw_graphs_dir = self.base_dir / "all_graphs" / "raw_graphs"
+        metadata_dir = self.base_dir / "all_graphs" / "graph_motif_metadata"
+        raw_graphs_dir.mkdir(parents=True, exist_ok=True)
+        metadata_dir.mkdir(parents=True, exist_ok=True)
 
         graphs = []
+        graph_idx = start_idx
+
         for i in tqdm(range(n_graphs), desc="Generating mixed motifs"):
-            G = self.generate_mixed_motif_graph()
+            G, metadata_df = self.generate_mixed_motif_graph()
 
             # Save graph
-            output_path = output_dir / f"graph_{i}.pkl"
-            with open(output_path, 'wb') as f:
+            graph_path = raw_graphs_dir / f"graph_{graph_idx}.pkl"
+            with open(graph_path, 'wb') as f:
                 pickle.dump(G, f)
 
-            graphs.append(G)
+            # Save metadata CSV
+            metadata_path = metadata_dir / f"graph_{graph_idx}_metadata.csv"
+            metadata_df.to_csv(metadata_path)
 
-        print(f"Generated {n_graphs} mixed-motif graphs")
-        return graphs
+            graphs.append(G)
+            graph_idx += 1
+
+        print(f"Generated {n_graphs} mixed-motif graphs (IDs {start_idx}-{graph_idx-1})")
+        return graphs, graph_idx
 
     def simulate_expression(self, W: np.ndarray,
                            steps: int = 50,
@@ -435,70 +576,36 @@ class GraphMotifGenerator:
 
         print("Simulating expression dynamics for all graphs...")
 
-        # Process single-motif graphs
-        for motif_type in self.motif_types:
-            motif_dir = self.base_dir / "single_motif_graphs" / motif_type
-            if not motif_dir.exists():
-                continue
+        # Process all graphs from the unified directory
+        raw_graphs_dir = self.base_dir / "all_graphs" / "raw_graphs"
+        if not raw_graphs_dir.exists():
+            print(f"Error: No graphs found in {raw_graphs_dir}")
+            return
 
-            output_motif_dir = output_path / "single_motif" / motif_type
-            output_motif_dir.mkdir(parents=True, exist_ok=True)
+        graphs = self._load_graphs_from_dir(raw_graphs_dir)
 
-            graphs = self._load_graphs_from_dir(motif_dir)
+        for pkl_path, G in tqdm(graphs, desc="Simulating all graphs"):
+            # Extract adjacency matrix
+            n_nodes = len(G.nodes())
+            W = nx.to_numpy_array(G, weight='weight')
 
-            for pkl_path, G in tqdm(graphs, desc=f"Simulating {motif_type}"):
-                # Extract adjacency matrix
-                n_nodes = len(G.nodes())
-                W = nx.to_numpy_array(G, weight='weight')
+            # Extract node labels
+            node_labels = [G.nodes[i].get('label', f'node_{i}')
+                          for i in range(n_nodes)]
 
-                # Extract node labels
-                node_labels = [G.nodes[i].get('label', f'node_{i}')
-                              for i in range(n_nodes)]
+            # Simulate expression
+            final_expression, trajectory = self.simulate_expression(
+                W, steps=steps, gamma=gamma, noise_std=noise_std,
+                return_trajectory=True
+            )
 
-                # Simulate expression
-                final_expression, trajectory = self.simulate_expression(
-                    W, steps=steps, gamma=gamma, noise_std=noise_std,
-                    return_trajectory=True
-                )
-
-                # Save results
-                output_file = output_motif_dir / f"{pkl_path.stem}_sim.npz"
-                np.savez(output_file,
-                        adjacency=W,
-                        node_labels=node_labels,
-                        expression=final_expression,
-                        trajectory=trajectory)
-
-        # Process mixed-motif graphs
-        mixed_dir = self.base_dir / "mixed_motif_graphs"
-        if mixed_dir.exists():
-            output_mixed_dir = output_path / "mixed_motif"
-            output_mixed_dir.mkdir(parents=True, exist_ok=True)
-
-            graphs = self._load_graphs_from_dir(mixed_dir)
-
-            for pkl_path, G in tqdm(graphs, desc="Simulating mixed motifs"):
-                # Extract adjacency matrix
-                n_nodes = len(G.nodes())
-                W = nx.to_numpy_array(G, weight='weight')
-
-                # Extract node labels
-                node_labels = [G.nodes[i].get('label', f'node_{i}')
-                              for i in range(n_nodes)]
-
-                # Simulate expression
-                final_expression, trajectory = self.simulate_expression(
-                    W, steps=steps, gamma=gamma, noise_std=noise_std,
-                    return_trajectory=True
-                )
-
-                # Save results
-                output_file = output_mixed_dir / f"{pkl_path.stem}_sim.npz"
-                np.savez(output_file,
-                        adjacency=W,
-                        node_labels=node_labels,
-                        expression=final_expression,
-                        trajectory=trajectory)
+            # Save results
+            output_file = output_path / f"{pkl_path.stem}_sim.npz"
+            np.savez(output_file,
+                    adjacency=W,
+                    node_labels=node_labels,
+                    expression=final_expression,
+                    trajectory=trajectory)
 
         print(f"Simulation results saved to {output_dir}")
 
@@ -508,16 +615,22 @@ def main():
     # Initialize generator
     generator = GraphMotifGenerator(base_dir="./data", seed=42)
 
-    # Generate single-motif graphs
-    generator.generate_single_motif_graphs(n_per_type=1000)
+    # Generate single-motif graphs (starting from index 0)
+    single_graphs, next_idx = generator.generate_single_motif_graphs(n_per_type=1000, start_idx=0)
 
-    # Generate mixed-motif graphs
-    generator.generate_mixed_motif_graphs(n_graphs=1000)
+    # Generate mixed-motif graphs (continuing from where single-motif ended)
+    mixed_graphs, final_idx = generator.generate_mixed_motif_graphs(n_graphs=1000, start_idx=next_idx)
+
+    print(f"\nTotal graphs generated: {final_idx}")
+    print(f"  - Single-motif: 0 to {next_idx-1}")
+    print(f"  - Mixed-motif: {next_idx} to {final_idx-1}")
+    print(f"\nAll graphs saved to: ./data/all_graphs/raw_graphs/")
+    print(f"All metadata saved to: ./data/all_graphs/graph_motif_metadata/")
 
     # Run simulations on all graphs
     generator.simulate_all(output_dir="./data/simulations", steps=50)
 
-    print("All graphs generated and simulated successfully!")
+    print("\nAll graphs generated and simulated successfully!")
 
 
 if __name__ == "__main__":
