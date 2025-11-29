@@ -205,8 +205,8 @@ class GCNModel(nn.Module):
         - Layer 3: GCNConv(64 -> 1) (3-hop neighborhoods, final prediction)
     """
 
-    def __init__(self, input_dim: int = 2, hidden_dim1: int = 128,
-                 hidden_dim2: int = 64, output_dim: int = 1, dropout: float = 0.2):
+    def __init__(self, input_dim: int = 2, hidden_dim: int = 128,
+                 output_dim: int = 1, dropout: float = 0.2):
         """
         Initialize the GCN model.
 
@@ -220,9 +220,9 @@ class GCNModel(nn.Module):
         super(GCNModel, self).__init__()
 
         # Disable internal normalization to support signed edge weights
-        self.conv1 = GCNConv(input_dim, hidden_dim1, normalize=False)
-        self.conv2 = GCNConv(hidden_dim1, hidden_dim2, normalize=False)
-        self.conv3 = GCNConv(hidden_dim2, output_dim, normalize=False)
+        self.conv1 = GCNConv(input_dim, hidden_dim, normalize=False)
+        self.conv2 = GCNConv(hidden_dim, 64, normalize=False)
+        self.conv3 = GCNConv(64, output_dim, normalize=False)
         self.dropout = dropout
 
         # Storage for activations
@@ -825,15 +825,15 @@ def main(model_type: str = "GCN"):
     val_dataset = GraphDataset(val_paths, mask_prob=MASK_PROB, seed=SEED + 1)
     test_dataset = GraphDataset(test_paths, mask_prob=MASK_PROB, seed=SEED + 2)
 
-    # Create data loaders
+    # Create data loaders (pin_memory=True for GPU, num_workers for parallel loading)
     train_loader = DataLoader(train_dataset, batch_size=BATCH_SIZE,
-                             shuffle=True, collate_fn=collate_fn)
+                             shuffle=True, collate_fn=collate_fn, pin_memory=True, num_workers=2)
     val_loader = DataLoader(val_dataset, batch_size=BATCH_SIZE,
-                           shuffle=False, collate_fn=collate_fn)
+                           shuffle=False, collate_fn=collate_fn, pin_memory=True, num_workers=2)
     test_loader = DataLoader(test_dataset, batch_size=BATCH_SIZE,
-                            shuffle=False, collate_fn=collate_fn)
+                            shuffle=False, collate_fn=collate_fn, pin_memory=True, num_workers=2)
     train_eval_loader = DataLoader(train_dataset, batch_size=BATCH_SIZE,
-                                   shuffle=False, collate_fn=collate_fn)
+                                   shuffle=False, collate_fn=collate_fn, pin_memory=True, num_workers=2)
 
     # Initialize model and trainer
     model_type_upper = model_type.upper()

@@ -4,4 +4,5 @@
 4. 64 also for standardized/comparable SAE analysis of the GCN/GAT activations
 5. mask_prob = 0.2 --> Standard node masking rate for graph neural networks during training. Balances training signal (20% of nodes are masked for prediction) while preserving sufficient labeled data --> Support from papers as well
 6. num_epochs = 100 --> Sufficient training iterations for convergence. Combined with early_stopping_patience=25 to prevent overfitting while allowing adequate training time --> Other papers use as default value
+7. concat = True for intermediate and False for final based on papers suggesting concat increases expressivity
 7. starting learning rate in the benchmarking needs to be justified

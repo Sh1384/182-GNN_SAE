@@ -264,7 +264,7 @@ class BenchmarkExperiment:
                                model_type: str = "GCN",
                                n_seeds: int = 5,
                                num_epochs: int = 100,
-                               batch_size: int = 32,
+                               batch_size: int = 128,
                                learning_rate: float = 1e-3) -> Dict:
         """
         Train GNN/baseline models across multiple seeds.
@@ -319,19 +319,19 @@ class BenchmarkExperiment:
             test_dataset = GraphDataset(test_paths, mask_prob=0.2, seed=seed + 2)
 
             train_loader = DataLoader(train_dataset, batch_size=batch_size,
-                                     shuffle=True, collate_fn=collate_fn)
+                                     shuffle=True, collate_fn=collate_fn, pin_memory=True, num_workers=2)
             val_loader = DataLoader(val_dataset, batch_size=batch_size,
-                                   shuffle=False, collate_fn=collate_fn)
+                                   shuffle=False, collate_fn=collate_fn, pin_memory=True, num_workers=2)
             test_loader = DataLoader(test_dataset, batch_size=batch_size,
-                                    shuffle=False, collate_fn=collate_fn)
+                                    shuffle=False, collate_fn=collate_fn, pin_memory=True, num_workers=2)
 
             # Initialize model
             if model_type == 'GCN':
                 model = GCNModel(input_dim=2, hidden_dim1=128, hidden_dim2=64,
                                output_dim=1, dropout=0.2)
             elif model_type == 'GAT':
-                model = GATModel(input_dim=2, hidden_dim1=128, hidden_dim2=64,
-                               output_dim=1, dropout=0.2, num_heads=4, edge_dim=1)
+                model = GATModel(input_dim=2, hidden_dim=32, output_dim=1,
+                               dropout=0.2, num_heads=4, edge_dim=1)
             elif model_type == 'MLP':
                 model = MLPBaseline(input_dim=2, hidden_dim1=128, hidden_dim2=64,
                                   output_dim=1, dropout=0.2)
@@ -428,11 +428,11 @@ class BenchmarkExperiment:
             test_dataset = DataVariationDataset(test_paths, steps=steps, noise_std=0.01, seed=44)
 
             train_loader = DataLoader(train_dataset, batch_size=batch_size,
-                                     shuffle=True, collate_fn=collate_fn)
+                                     shuffle=True, collate_fn=collate_fn, pin_memory=True, num_workers=2)
             val_loader = DataLoader(val_dataset, batch_size=batch_size,
-                                   shuffle=False, collate_fn=collate_fn)
+                                   shuffle=False, collate_fn=collate_fn, pin_memory=True, num_workers=2)
             test_loader = DataLoader(test_dataset, batch_size=batch_size,
-                                    shuffle=False, collate_fn=collate_fn)
+                                    shuffle=False, collate_fn=collate_fn, pin_memory=True, num_workers=2)
 
             # Train model
             if model_type == 'GCN':
@@ -441,8 +441,8 @@ class BenchmarkExperiment:
             elif model_type == 'MLP':
                 model = MLPBaseline()
             else:
-                model = GATModel(input_dim=2, hidden_dim1=128, hidden_dim2=64,
-                               output_dim=1, dropout=0.2, num_heads=4, edge_dim=1)
+                model = GATModel(input_dim=2, hidden_dim=32, output_dim=1,
+                               dropout=0.2, num_heads=4, edge_dim=1)
 
             trainer = BaselineTrainer(model, device=device)
 
@@ -486,11 +486,11 @@ class BenchmarkExperiment:
             test_dataset = DataVariationDataset(test_paths, steps=50, noise_std=noise_std, seed=44)
 
             train_loader = DataLoader(train_dataset, batch_size=batch_size,
-                                     shuffle=True, collate_fn=collate_fn)
+                                     shuffle=True, collate_fn=collate_fn, pin_memory=True, num_workers=2)
             val_loader = DataLoader(val_dataset, batch_size=batch_size,
-                                   shuffle=False, collate_fn=collate_fn)
+                                   shuffle=False, collate_fn=collate_fn, pin_memory=True, num_workers=2)
             test_loader = DataLoader(test_dataset, batch_size=batch_size,
-                                    shuffle=False, collate_fn=collate_fn)
+                                    shuffle=False, collate_fn=collate_fn, pin_memory=True, num_workers=2)
 
             # Train model
             if model_type == 'GCN':
@@ -499,8 +499,8 @@ class BenchmarkExperiment:
             elif model_type == 'MLP':
                 model = MLPBaseline()
             else:
-                model = GATModel(input_dim=2, hidden_dim1=128, hidden_dim2=64,
-                               output_dim=1, dropout=0.2, num_heads=4, edge_dim=1)
+                model = GATModel(input_dim=2, hidden_dim=32, output_dim=1,
+                               dropout=0.2, num_heads=4, edge_dim=1)
 
             trainer = BaselineTrainer(model, device=device)
 
