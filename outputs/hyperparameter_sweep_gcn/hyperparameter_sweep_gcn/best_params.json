@@ -1,6 +1,0 @@
-{
-  "hidden_dim": 144,
-  "dropout": 0.25,
-  "learning_rate": 0.028505322089850224,
-  "batch_size": 64
-}

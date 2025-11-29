@@ -36,15 +36,50 @@ MOTIF_TO_ID = {label: idx for idx, label in enumerate(MOTIF_LABELS)}
 
 
 def _infer_motif_label(graph_path: Path) -> str:
-    """Infer motif label from a path using directory structure."""
+    """
+    Infer motif label from a path using directory structure or graph ID.
+
+    Supports both old structure (single_motif_graphs/motif_type/) and
+    new structure (all_graphs/raw_graphs/ with graph IDs).
+
+    For new structure, graph IDs map to motifs as follows:
+    - IDs 0-999:       feedforward_loop
+    - IDs 1000-1999:   feedback_loop
+    - IDs 2000-2999:   single_input_module
+    - IDs 3000-3999:   cascade
+    - IDs 4000-4999:   mixed_motif
+    """
     parts = graph_path.parts
+
+    # Try old directory structure first
     if "single_motif_graphs" in parts:
         idx = parts.index("single_motif_graphs")
         if idx + 1 < len(parts):
             return parts[idx + 1]
     if "mixed_motif_graphs" in parts:
         return "mixed_motif"
-    return "unknown"
+
+    # For new structure, infer from graph ID
+    try:
+        graph_id = int(graph_path.stem.split('_')[1])
+
+        # Mixed-motif graphs (IDs 4000-4999)
+        if graph_id >= 4000:
+            return "mixed_motif"
+
+        # Single-motif graphs (IDs 0-3999) - use graph ID ranges
+        # Order matches GraphMotifGenerator.motif_types initialization
+        if graph_id < 1000:
+            return "feedforward_loop"
+        elif graph_id < 2000:
+            return "feedback_loop"
+        elif graph_id < 3000:
+            return "single_input_module"
+        else:  # graph_id < 4000
+            return "cascade"
+
+    except (IndexError, ValueError):
+        return "unknown"
 
 
 class GraphDataset(Dataset):
@@ -57,7 +92,7 @@ class GraphDataset(Dataset):
         rng: Random number generator
     """
 
-    def __init__(self, graph_paths: List[Path], mask_prob: float = 0.3, seed: int = 42):
+    def __init__(self, graph_paths: List[Path], mask_prob: float = 0.2, seed: int = 42):
         """
         Initialize the graph dataset.
 
@@ -162,38 +197,42 @@ class GraphDataset(Dataset):
 
 class GCNModel(nn.Module):
     """
-    Two-layer Graph Convolutional Network for node value prediction.
+    Three-layer Graph Convolutional Network for node value prediction.
 
     Architecture:
-        - Layer 1: GCNConv(2 -> 64) + ReLU + Dropout
-        - Layer 2: GCNConv(64 -> 1)
+        - Layer 1: GCNConv(2 -> 128) + ReLU + Dropout (1-hop neighborhoods)
+        - Layer 2: GCNConv(128 -> 64) + ReLU + Dropout (2-hop neighborhoods)
+        - Layer 3: GCNConv(64 -> 1) (3-hop neighborhoods, final prediction)
     """
 
-    def __init__(self, input_dim: int = 2, hidden_dim: int = 64,
-                 output_dim: int = 1, dropout: float = 0.2):
+    def __init__(self, input_dim: int = 2, hidden_dim1: int = 128,
+                 hidden_dim2: int = 64, output_dim: int = 1, dropout: float = 0.2):
         """
         Initialize the GCN model.
 
         Args:
             input_dim: Input feature dimension
-            hidden_dim: Hidden layer dimension
+            hidden_dim1: First hidden layer dimension
+            hidden_dim2: Second hidden layer dimension
             output_dim: Output dimension
             dropout: Dropout probability
         """
         super(GCNModel, self).__init__()
 
         # Disable internal normalization to support signed edge weights
-        self.conv1 = GCNConv(input_dim, hidden_dim, normalize=False)
-        self.conv2 = GCNConv(hidden_dim, output_dim, normalize=False)
+        self.conv1 = GCNConv(input_dim, hidden_dim1, normalize=False)
+        self.conv2 = GCNConv(hidden_dim1, hidden_dim2, normalize=False)
+        self.conv3 = GCNConv(hidden_dim2, output_dim, normalize=False)
         self.dropout = dropout
 
         # Storage for activations
         self.layer1_activations = None
         self.layer2_activations = None
+        self.layer3_activations = None
 
     def forward(self, data: Data, store_activations: bool = False) -> torch.Tensor:
         """
-        Forward pass through the GCN.
+        Forward pass through the 3-layer GCN.
 
         Args:
             data: PyG Data object
@@ -205,7 +244,7 @@ class GCNModel(nn.Module):
         x, edge_index = data.x, data.edge_index
         edge_weight = getattr(data, 'edge_attr', None)
 
-        # Layer 1: GCNConv + ReLU + Dropout
+        # Layer 1: GCNConv + ReLU + Dropout (1-hop neighborhoods)
         h1 = self.conv1(x, edge_index, edge_weight=edge_weight)
         h1 = F.relu(h1)
 
@@ -214,43 +253,55 @@ class GCNModel(nn.Module):
 
         h1 = F.dropout(h1, p=self.dropout, training=self.training)
 
-        # Layer 2: GCNConv
+        # Layer 2: GCNConv + ReLU + Dropout (2-hop neighborhoods)
         h2 = self.conv2(h1, edge_index, edge_weight=edge_weight)
+        h2 = F.relu(h2)
 
         if store_activations:
             self.layer2_activations = h2.detach()
 
-        return h2.squeeze(-1)
+        h2 = F.dropout(h2, p=self.dropout, training=self.training)
 
-    def get_activations(self) -> Tuple[torch.Tensor, torch.Tensor]:
+        # Layer 3: GCNConv (3-hop neighborhoods, final prediction)
+        h3 = self.conv3(h2, edge_index, edge_weight=edge_weight)
+
+        if store_activations:
+            self.layer3_activations = h3.detach()
+
+        return h3.squeeze(-1)
+
+    def get_activations(self) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
         """
         Get stored layer activations.
 
         Returns:
-            Tuple of (layer1_activations, layer2_activations)
+            Tuple of (layer1_activations, layer2_activations, layer3_activations)
         """
-        return self.layer1_activations, self.layer2_activations
+        return self.layer1_activations, self.layer2_activations, self.layer3_activations
 
 
 class GATModel(nn.Module):
     """
-    Two-layer Graph Attention Network for node value prediction.
+    Three-layer Graph Attention Network for node value prediction.
 
     Architecture:
-        - Layer 1: Multi-head GATConv + ELU + Dropout
-        - Layer 2: Single-head GATConv that outputs scalar predictions
+        - Layer 1: Multi-head GATConv (2 -> 128) + ELU + Dropout (captures 1-hop)
+        - Layer 2: Multi-head GATConv (128 -> 64) + ELU + Dropout (captures 2-hop)
+        - Layer 3: Single-head GATConv (64 -> 1) (captures 3-hop, final prediction)
     """
 
-    def __init__(self, input_dim: int = 2, hidden_dim: int = 64,
+    def __init__(self, input_dim: int = 2, hidden_dim: int = 32,
                  output_dim: int = 1, dropout: float = 0.2,
                  num_heads: int = 4, edge_dim: int = 1):
         super(GATModel, self).__init__()
 
         self.num_heads = num_heads
         self.hidden_dim = hidden_dim
+        #self.hidden_dim2 = hidden_dim2
         self.edge_dim = edge_dim
 
-        # Layer 1: Multi-head attention
+        # Layer 1: Multi-head attention (2 -> 32*4 = 128)
+        # to represent first hop and add hyperparameter tuning freedom
         self.conv1 = GATConv(
             input_dim,
             hidden_dim,
@@ -259,9 +310,19 @@ class GATModel(nn.Module):
             edge_dim=edge_dim
         )
 
-        # Layer 2: Single-head attention for output
+        # Layer 2: Multi-head attention (128 -> 64) --> To get 64 activations (same as GCN) for standardized and comparable SAE analysis
+        # Og GAT paper uses 8 hidden_dim and 8 heads (giving 64) so we are fixing second layer based on that
         self.conv2 = GATConv(
             hidden_dim * num_heads,
+            8,
+            8,
+            dropout=dropout,
+            edge_dim=edge_dim
+        )
+
+        # Layer 3: Single-head attention for output (64 -> 1)
+        self.conv3 = GATConv(
+            64,
             output_dim,
             heads=1,
             concat=False,
@@ -274,6 +335,7 @@ class GATModel(nn.Module):
         # Storage for activations
         self.layer1_activations = None
         self.layer2_activations = None
+        self.layer3_activations = None
 
     def forward(self, data: Data, store_activations: bool = False) -> torch.Tensor:
         x, edge_index = data.x, data.edge_index
@@ -282,6 +344,7 @@ class GATModel(nn.Module):
         if edge_attr is not None and edge_attr.dim() == 1:
             edge_attr = edge_attr.unsqueeze(-1)
 
+        # Layer 1
         h1 = self.conv1(
             x,
             edge_index,
@@ -294,19 +357,33 @@ class GATModel(nn.Module):
 
         h1 = F.dropout(h1, p=self.dropout, training=self.training)
 
+        # Layer 2
         h2 = self.conv2(
             h1,
             edge_index,
             edge_attr=edge_attr
         )
+        h2 = F.elu(h2)
 
         if store_activations:
             self.layer2_activations = h2.detach()
 
-        return h2.squeeze(-1)
+        h2 = F.dropout(h2, p=self.dropout, training=self.training)
 
-    def get_activations(self) -> Tuple[torch.Tensor, torch.Tensor]:
-        return self.layer1_activations, self.layer2_activations
+        # Layer 3
+        h3 = self.conv3(
+            h2,
+            edge_index,
+            edge_attr=edge_attr
+        )
+
+        if store_activations:
+            self.layer3_activations = h3.detach()
+
+        return h3.squeeze(-1)
+
+    def get_activations(self) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+        return self.layer1_activations, self.layer2_activations, self.layer3_activations
 
 
 class GNNTrainer:
@@ -433,8 +510,10 @@ class GNNTrainer:
 
         layer1_dir = Path(output_dir) / "activations" / "layer1" / split_name
         layer2_dir = Path(output_dir) / "activations" / "layer2" / split_name
+        layer3_dir = Path(output_dir) / "activations" / "layer3" / split_name
         layer1_dir.mkdir(parents=True, exist_ok=True)
         layer2_dir.mkdir(parents=True, exist_ok=True)
+        layer3_dir.mkdir(parents=True, exist_ok=True)
 
         graph_idx = 0
 
@@ -444,7 +523,7 @@ class GNNTrainer:
 
                 # Forward pass with activation storage
                 _ = self.model(batch, store_activations=True)
-                h1, h2 = self.model.get_activations()
+                h1, h2, h3 = self.model.get_activations()
 
                 # Split batch back into individual graphs
                 if hasattr(batch, 'batch'):
@@ -457,16 +536,19 @@ class GNNTrainer:
 
                         h1_graph = h1[mask].cpu()
                         h2_graph = h2[mask].cpu()
+                        h3_graph = h3[mask].cpu()
 
                         # Save activations
                         torch.save(h1_graph, layer1_dir / f"graph_{graph_idx}.pt")
                         torch.save(h2_graph, layer2_dir / f"graph_{graph_idx}.pt")
+                        torch.save(h3_graph, layer3_dir / f"graph_{graph_idx}.pt")
 
                         graph_idx += 1
                 else:
                     # Single graph
                     torch.save(h1.cpu(), layer1_dir / f"graph_{graph_idx}.pt")
                     torch.save(h2.cpu(), layer2_dir / f"graph_{graph_idx}.pt")
+                    torch.save(h3.cpu(), layer3_dir / f"graph_{graph_idx}.pt")
                     graph_idx += 1
 
         print(f"Saved activations for {graph_idx} graphs to {output_dir}/activations/")
@@ -499,20 +581,54 @@ def load_all_graphs(data_dir: str = "./virtual_graphs/data", single_motif_only: 
     data_path = Path(data_dir)
     graph_paths = []
 
-    # Load single-motif graphs
-    single_motif_dir = data_path / "single_motif_graphs"
-    if single_motif_dir.exists():
-        for motif_type_dir in single_motif_dir.iterdir():
-            if motif_type_dir.is_dir():
-                graph_paths.extend(sorted(motif_type_dir.glob("*.pkl")))
+    # First try to load from new all_graphs/raw_graphs/ directory
+    all_graphs_dir = data_path / "all_graphs" / "raw_graphs"
+    if all_graphs_dir.exists():
+        # Load all graphs from the new all_graphs directory
+        all_pkl_files = sorted(all_graphs_dir.glob("*.pkl"))
 
-    # Load mixed-motif graphs only if single_motif_only is False
-    if not single_motif_only:
-        mixed_motif_dir = data_path / "mixed_motif_graphs"
-        if mixed_motif_dir.exists():
-            graph_paths.extend(sorted(mixed_motif_dir.glob("*.pkl")))
+        if single_motif_only:
+            # Filter to only single-motif graphs (IDs 0-3999)
+            graph_paths.extend([f for f in all_pkl_files if _is_single_motif_graph(f)])
+        else:
+            # Load all graphs (both single and mixed motif)
+            graph_paths.extend(all_pkl_files)
+    else:
+        # Fall back to old directory structure for backward compatibility
+        # Load single-motif graphs
+        single_motif_dir = data_path / "single_motif_graphs"
+        if single_motif_dir.exists():
+            for motif_type_dir in single_motif_dir.iterdir():
+                if motif_type_dir.is_dir():
+                    graph_paths.extend(sorted(motif_type_dir.glob("*.pkl")))
+
+        # Load mixed-motif graphs only if single_motif_only is False
+        if not single_motif_only:
+            mixed_motif_dir = data_path / "mixed_motif_graphs"
+            if mixed_motif_dir.exists():
+                graph_paths.extend(sorted(mixed_motif_dir.glob("*.pkl")))
 
     return graph_paths
+
+
+def _is_single_motif_graph(graph_path: Path) -> bool:
+    """
+    Check if a graph is from the single-motif set based on its filename.
+    Single-motif graphs have IDs 0-3999, mixed-motif graphs have IDs 4000-4999.
+
+    Args:
+        graph_path: Path to graph file
+
+    Returns:
+        True if the graph is single-motif, False otherwise
+    """
+    try:
+        # Extract the number from filename like "graph_123.pkl"
+        graph_id = int(graph_path.stem.split('_')[1])
+        return graph_id < 4000
+    except (IndexError, ValueError):
+        # If we can't parse the ID, assume it's not single-motif
+        return False
 
 
 def _count_motif_distribution(paths: List[Path]) -> Dict[str, int]:
@@ -678,7 +794,7 @@ def main(model_type: str = "GCN"):
     BATCH_SIZE = 32 
     NUM_EPOCHS = 100
     LEARNING_RATE = 1e-3
-    MASK_PROB = 0.3
+    MASK_PROB = 0.2
 
     print(f"Using device: {DEVICE}")
     print(f"Model type: {model_type}")
@@ -746,7 +862,7 @@ def main(model_type: str = "GCN"):
     # Training loop
     print(f"\nTraining {model_type_upper} model...")
     best_val_loss = float('inf')
-    patience = 10
+    patience = 25
     patience_counter = 0
     best_epoch = -1
     training_metrics = {
