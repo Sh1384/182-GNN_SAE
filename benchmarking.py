@@ -199,7 +199,9 @@ class BaselineTrainer:
                  learning_rate: float = 1e-3, seed: int = 42):
         self.model = model.to(device)
         self.device = device
-        self.optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
+        # Only create optimizer if model has parameters (skip for non-parametric baselines)
+        model_params = list(model.parameters())
+        self.optimizer = torch.optim.Adam(model_params, lr=learning_rate) if model_params else None
         self.criterion = nn.MSELoss(reduction='none')
 
     def train_epoch(self, train_loader: DataLoader) -> float:
@@ -210,15 +212,19 @@ class BaselineTrainer:
         for batch in train_loader:
             batch = batch.to(self.device)
 
-            self.optimizer.zero_grad()
+            # Skip optimization for non-parametric models (no optimizer)
+            if self.optimizer is not None:
+                self.optimizer.zero_grad()
+
             pred = self.model(batch)
 
             loss_per_node = self.criterion(pred, batch.y)
             masked_loss = loss_per_node[batch.mask]
             loss = masked_loss.mean()
 
-            loss.backward()
-            self.optimizer.step()
+            if self.optimizer is not None:
+                loss.backward()
+                self.optimizer.step()
 
             total_loss += loss.item()
 
@@ -327,7 +333,7 @@ class BenchmarkExperiment:
 
             # Initialize model
             if model_type == 'GCN':
-                model = GCNModel(input_dim=2, hidden_dim1=128, hidden_dim2=64,
+                model = GCNModel(input_dim=2, hidden_dim=128,
                                output_dim=1, dropout=0.2)
             elif model_type == 'GAT':
                 model = GATModel(input_dim=2, hidden_dim=32, output_dim=1,
@@ -339,12 +345,16 @@ class BenchmarkExperiment:
                 model = MeanMedianBaseline(statistic='mean')
                 model.fit(train_loader)
                 # Skip training for mean/median baseline
-                val_loss = BaselineTrainer(model, device).validate(val_loader)
-                test_loss = BaselineTrainer(model, device).validate(test_loader)
+                trainer = BaselineTrainer(model, device=device)
+                val_loss = trainer.validate(val_loader)
+                test_loss = trainer.validate(test_loader)
+                # Compute motif-specific metrics
+                motif_metrics = self.compute_motif_metrics(trainer.model, test_loader, device=device)
                 seed_results['train_loss'].append(val_loss)
                 seed_results['val_loss'].append(val_loss)
                 seed_results['test_loss'].append(test_loss)
                 seed_results['best_epoch'].append(1)
+                seed_results['motif_metrics'].append(motif_metrics)
                 continue
             else:
                 raise ValueError(f"Unknown model type: {model_type}")
@@ -436,7 +446,7 @@ class BenchmarkExperiment:
 
             # Train model
             if model_type == 'GCN':
-                model = GCNModel(input_dim=2, hidden_dim1=128, hidden_dim2=64,
+                model = GCNModel(input_dim=2, hidden_dim=128,
                                output_dim=1, dropout=0.2)
             elif model_type == 'MLP':
                 model = MLPBaseline()
@@ -494,7 +504,7 @@ class BenchmarkExperiment:
 
             # Train model
             if model_type == 'GCN':
-                model = GCNModel(input_dim=2, hidden_dim1=128, hidden_dim2=64,
+                model = GCNModel(input_dim=2, hidden_dim=128,
                                output_dim=1, dropout=0.2)
             elif model_type == 'MLP':
                 model = MLPBaseline()
