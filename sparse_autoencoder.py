@@ -327,36 +327,152 @@ def save_json(data: Dict, path: str):
         json.dump(data, f, indent=2)
 
 
+def _run_single_config(
+    train_dataset: ActivationDataset,
+    val_dataset: ActivationDataset,
+    test_dataset: ActivationDataset,
+    input_dim: int,
+    latent_dim: int,
+    k: int,
+    device: str,
+    batch_size: int,
+    num_epochs: int,
+    learning_rate: float,
+    seed: int,
+) -> None:
+    """
+    Train and evaluate a single SAE configuration and save results.
+
+    Saves checkpoints to checkpoints/sae_latent{latent_dim}_k{k}.pt and
+    metrics to outputs/sae_metrics_latent{latent_dim}_k{k}.json.
+    """
+    torch.manual_seed(seed)
+    np.random.seed(seed)
+    if torch.cuda.is_available():
+        torch.cuda.manual_seed(seed)
+
+    print("=" * 60)
+    print(f"Sparse Autoencoder Training (latent_dim={latent_dim}, k={k})")
+    print("=" * 60)
+    print(f"Device: {device}")
+    print(f"Architecture: {input_dim} -> {latent_dim} -> {input_dim}")
+    print(f"Sparsity method: TopK (k={k}, {100*k/latent_dim:.1f}% active)")
+    print(f"Batch size: {batch_size}")
+    print(f"Epochs: {num_epochs}")
+    print()
+
+    train_loader = DataLoader(train_dataset, batch_size=batch_size,
+                              shuffle=True, num_workers=4)
+    val_loader = DataLoader(val_dataset, batch_size=batch_size,
+                            shuffle=False, num_workers=4)
+    test_loader = DataLoader(test_dataset, batch_size=batch_size,
+                             shuffle=False, num_workers=4)
+
+    model = SparseAutoencoder(
+        input_dim=input_dim,
+        latent_dim=latent_dim,
+        k=k
+    )
+    trainer = SAETrainer(model, device=device, learning_rate=learning_rate)
+
+    best_val_loss = float('inf')
+    patience = 15
+    patience_counter = 0
+
+    ckpt_path = f"checkpoints/sae_latent{latent_dim}_k{k}.pt"
+
+    print("Training Sparse Autoencoder...")
+    print("-" * 60)
+
+    for epoch in range(num_epochs):
+        train_metrics = trainer.train_epoch(train_loader)
+        val_metrics = trainer.evaluate(val_loader)
+
+        trainer.history['train_loss'].append(train_metrics['total'])
+        trainer.history['train_recon'].append(train_metrics['reconstruction'])
+        trainer.history['train_sparsity'].append(train_metrics['sparsity'])
+        trainer.history['train_l0'].append(train_metrics['l0_sparsity'])
+
+        trainer.history['val_loss'].append(val_metrics['total'])
+        trainer.history['val_recon'].append(val_metrics['reconstruction'])
+        trainer.history['val_sparsity'].append(val_metrics['sparsity'])
+        trainer.history['val_l0'].append(val_metrics['l0_sparsity'])
+
+        if (epoch + 1) % 5 == 0 or epoch == 0:
+            print(f"[latent={latent_dim}, k={k}] Epoch {epoch+1}/{num_epochs}")
+            print(f"  Train - Loss: {train_metrics['total']:.6f}, "
+                  f"Recon: {train_metrics['reconstruction']:.6f}, "
+                  f"L0: {train_metrics['l0_sparsity']:.3f}")
+            print(f"  Val   - Loss: {val_metrics['total']:.6f}, "
+                  f"Recon: {val_metrics['reconstruction']:.6f}, "
+                  f"L0: {val_metrics['l0_sparsity']:.3f}")
+
+        if val_metrics['total'] < best_val_loss:
+            best_val_loss = val_metrics['total']
+            patience_counter = 0
+            trainer.save_model(ckpt_path)
+        else:
+            patience_counter += 1
+            if patience_counter >= patience:
+                print(f"\nEarly stopping at epoch {epoch+1}")
+                break
+
+    print("\nTraining complete!")
+    print(f"Best validation loss (latent={latent_dim}, k={k}): {best_val_loss:.6f}")
+
+    # Evaluate best checkpoint on test set
+    trainer.load_model(ckpt_path)
+    test_metrics = trainer.evaluate(test_loader)
+
+    print(f"Test Loss: {test_metrics['total']:.6f}")
+    print(f"Test Reconstruction: {test_metrics['reconstruction']:.6f}")
+    print(f"Test L0 Sparsity: {test_metrics['l0_sparsity']:.3f}")
+
+    metrics_path = f"outputs/sae_metrics_latent{latent_dim}_k{k}.json"
+    final_metrics = {
+        'best_val_loss': float(best_val_loss),
+        'test_loss': float(test_metrics['total']),
+        'test_reconstruction': float(test_metrics['reconstruction']),
+        'test_sparsity': float(test_metrics['sparsity']),
+        'test_l0_sparsity': float(test_metrics['l0_sparsity']),
+        'train_history': trainer.history,
+        'config': {
+            'input_dim': input_dim,
+            'latent_dim': latent_dim,
+            'k': k,
+            'sparsity_method': 'topk',
+            'target_sparsity': k / latent_dim,
+            'learning_rate': learning_rate,
+            'batch_size': batch_size,
+            'seed': seed
+        }
+    }
+    save_json(final_metrics, metrics_path)
+    print(f"Metrics saved to {metrics_path}")
+    print("=" * 60)
+
+
 def main():
-    """Main training pipeline for SAE."""
-    # Configuration
+    """Main training pipeline for SAE with (latent_dim, k) sweep."""
     SEED = 42
     DEVICE = 'cuda' if torch.cuda.is_available() else 'cpu'
     BATCH_SIZE = 1024
     NUM_EPOCHS = 100
     LEARNING_RATE = 1e-3
 
-    INPUT_DIM = 64   # Layer2 activation dimension
-    LATENT_DIM = 512  # 8x expansion
-    K = 32           # Number of active neurons (32/512 = 6.25% sparsity)
+    INPUT_DIM = 64
 
-    print("="*60)
+    latent_dims = [128, 256, 512]
+    k_values = [4, 8, 16, 32]
+
+    print("=" * 60)
     print("Sparse Autoencoder Training for GNN Layer2 Activations")
-    print("="*60)
+    print("=" * 60)
     print(f"Device: {DEVICE}")
-    print(f"Architecture: {INPUT_DIM} -> {LATENT_DIM} -> {INPUT_DIM}")
-    print(f"Sparsity method: TopK (k={K}, {100*K/LATENT_DIM:.1f}% active)")
-    print(f"Batch size: {BATCH_SIZE}")
-    print(f"Epochs: {NUM_EPOCHS}")
+    print(f"Latent dims to sweep: {latent_dims}")
+    print(f"k values to sweep: {k_values}")
     print()
 
-    # Set random seeds
-    torch.manual_seed(SEED)
-    np.random.seed(SEED)
-    if torch.cuda.is_available():
-        torch.cuda.manual_seed(SEED)
-
-    # Load datasets
     print("Loading activation datasets...")
     train_dir = Path("outputs/activations/layer2/train")
     val_dir = Path("outputs/activations/layer2/val")
@@ -376,105 +492,23 @@ def main():
     print(f"  Test: {len(test_dataset)} node activations")
     print()
 
-    # Create data loaders
-    train_loader = DataLoader(train_dataset, batch_size=BATCH_SIZE,
-                              shuffle=True, num_workers=4)
-    val_loader = DataLoader(val_dataset, batch_size=BATCH_SIZE,
-                            shuffle=False, num_workers=4)
-    test_loader = DataLoader(test_dataset, batch_size=BATCH_SIZE,
-                             shuffle=False, num_workers=4)
-
-    # Initialize model and trainer
-    model = SparseAutoencoder(
-        input_dim=INPUT_DIM,
-        latent_dim=LATENT_DIM,
-        k=K
-    )
-
-    trainer = SAETrainer(model, device=DEVICE, learning_rate=LEARNING_RATE)
-
-    # Training loop
-    print("Training Sparse Autoencoder...")
-    print("-" * 60)
-
-    best_val_loss = float('inf')
-    patience = 15
-    patience_counter = 0
-
-    for epoch in range(NUM_EPOCHS):
-        # Train
-        train_metrics = trainer.train_epoch(train_loader)
-
-        # Validate
-        val_metrics = trainer.evaluate(val_loader)
-
-        # Store history
-        trainer.history['train_loss'].append(train_metrics['total'])
-        trainer.history['train_recon'].append(train_metrics['reconstruction'])
-        trainer.history['train_sparsity'].append(train_metrics['sparsity'])
-        trainer.history['train_l0'].append(train_metrics['l0_sparsity'])
-
-        trainer.history['val_loss'].append(val_metrics['total'])
-        trainer.history['val_recon'].append(val_metrics['reconstruction'])
-        trainer.history['val_sparsity'].append(val_metrics['sparsity'])
-        trainer.history['val_l0'].append(val_metrics['l0_sparsity'])
-
-        # Print progress
-        if (epoch + 1) % 5 == 0 or epoch == 0:
-            print(f"Epoch {epoch+1}/{NUM_EPOCHS}")
-            print(f"  Train - Loss: {train_metrics['total']:.6f}, "
-                  f"Recon: {train_metrics['reconstruction']:.6f}, "
-                  f"L0: {train_metrics['l0_sparsity']:.3f}")
-            print(f"  Val   - Loss: {val_metrics['total']:.6f}, "
-                  f"Recon: {val_metrics['reconstruction']:.6f}, "
-                  f"L0: {val_metrics['l0_sparsity']:.3f}")
-
-        # Early stopping
-        if val_metrics['total'] < best_val_loss:
-            best_val_loss = val_metrics['total']
-            patience_counter = 0
-            trainer.save_model("checkpoints/sae_model.pt")
-        else:
-            patience_counter += 1
-            if patience_counter >= patience:
-                print(f"\nEarly stopping at epoch {epoch+1}")
-                break
-
-    print("\n" + "="*60)
-    print("Training complete!")
-    print(f"Best validation loss: {best_val_loss:.6f}")
-
-    # Load best model and evaluate on test set
-    print("\nEvaluating on test set...")
-    trainer.load_model("checkpoints/sae_model.pt")
-    test_metrics = trainer.evaluate(test_loader)
-
-    print(f"Test Loss: {test_metrics['total']:.6f}")
-    print(f"Test Reconstruction: {test_metrics['reconstruction']:.6f}")
-    print(f"Test L0 Sparsity: {test_metrics['l0_sparsity']:.3f}")
-
-    # Save metrics
-    final_metrics = {
-        'best_val_loss': float(best_val_loss),
-        'test_loss': float(test_metrics['total']),
-        'test_reconstruction': float(test_metrics['reconstruction']),
-        'test_sparsity': float(test_metrics['sparsity']),
-        'test_l0_sparsity': float(test_metrics['l0_sparsity']),
-        'train_history': trainer.history,
-        'config': {
-            'input_dim': INPUT_DIM,
-            'latent_dim': LATENT_DIM,
-            'k': K,
-            'sparsity_method': 'topk',
-            'target_sparsity': K / LATENT_DIM,
-            'learning_rate': LEARNING_RATE,
-            'batch_size': BATCH_SIZE
-        }
-    }
-
-    save_json(final_metrics, "outputs/sae_metrics.json")
-    print("\nMetrics saved to outputs/sae_metrics.json")
-    print("="*60)
+    for latent_dim in latent_dims:
+        for k in k_values:
+            if k > latent_dim:
+                continue
+            _run_single_config(
+                train_dataset=train_dataset,
+                val_dataset=val_dataset,
+                test_dataset=test_dataset,
+                input_dim=INPUT_DIM,
+                latent_dim=latent_dim,
+                k=k,
+                device=DEVICE,
+                batch_size=BATCH_SIZE,
+                num_epochs=NUM_EPOCHS,
+                learning_rate=LEARNING_RATE,
+                seed=SEED,
+            )
 
 
 if __name__ == "__main__":

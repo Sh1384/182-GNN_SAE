@@ -657,7 +657,7 @@ def main():
         all_graph_paths,
         seed=SEED,
         stratify_by_motif=True,
-        equal_counts_per_motif=True
+        equal_counts_per_motif=False
     )
     print(f"Split: {len(train_paths)} train, {len(val_paths)} val, {len(test_paths)} test")
     print("Motif distribution per split:")
