@@ -1,2 +1,4 @@
 */virtual_graphs/data
-
+gnn_train (1).py
+gnn_train (2).py
+__pycache__

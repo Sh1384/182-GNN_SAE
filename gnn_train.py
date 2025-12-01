@@ -35,31 +35,6 @@ MOTIF_LABELS = [
 MOTIF_TO_ID = {label: idx for idx, label in enumerate(MOTIF_LABELS)}
 
 
-def _extract_graph_id(graph_path: Path) -> Optional[int]:
-    """
-    Extract original graph ID from filename.
-
-    Filenames follow pattern: graph_<ID>.pkl
-    Graph IDs encode motif type:
-    - 0-999:       feedforward_loop
-    - 1000-1999:   feedback_loop
-    - 2000-2999:   single_input_module
-    - 3000-3999:   cascade
-    - 4000-4999:   mixed_motif
-
-    Args:
-        graph_path: Path to graph file
-
-    Returns:
-        Original graph ID, or None if cannot be extracted
-    """
-    try:
-        graph_id = int(graph_path.stem.split('_')[1])
-        return graph_id
-    except (IndexError, ValueError):
-        return None
-
-
 def _infer_motif_label(graph_path: Path) -> str:
     """
     Infer motif label from a path using directory structure or graph ID.
@@ -146,6 +121,9 @@ class GraphDataset(Dataset):
         # Load graph
         with open(self.graph_paths[idx], 'rb') as f:
             G = pickle.load(f)
+        
+        # Extract graph ID from filename (graph_X.pkl -> X)
+        graph_id = int(self.graph_paths[idx].stem.split('_')[1])
 
         motif_label = _infer_motif_label(self.graph_paths[idx])
         motif_id = MOTIF_TO_ID.get(motif_label, MOTIF_TO_ID["unknown"])
@@ -190,6 +168,7 @@ class GraphDataset(Dataset):
             num_nodes=n_nodes
         )
         data.motif_id = torch.tensor([motif_id], dtype=torch.long)
+        data.graph_id = torch.tensor([graph_id], dtype=torch.long)
 
         return data
 
@@ -522,43 +501,31 @@ class GNNTrainer:
         print(f"Model saved to {path}")
 
     def extract_and_save_activations(self, data_loader: DataLoader,
-                                     output_dir: str, split_name: str, layer: int = 2):
+                                     output_dir: str, split_name: str):
         """
-        Extract and save layer activations for all graphs.
+        Extract and save layer2 (64-dim) activations for all graphs.
 
         Args:
             data_loader: DataLoader for graphs
             output_dir: Base output directory
             split_name: Name of data split (train/val/test)
-            layer: Which layer to save (1, 2, or 3). Default: 2 (second hidden layer)
         """
         self.model.eval()
 
-        layer_dirs = {
-            1: Path(output_dir) / "activations" / "layer1" / split_name,
-            2: Path(output_dir) / "activations" / "layer2" / split_name,
-            3: Path(output_dir) / "activations" / "layer3" / split_name,
-        }
+        # Only create layer2 directory (64-dimensional activations)
+        layer2_dir = Path(output_dir) / "activations" / "layer2" / split_name
+        layer2_dir.mkdir(parents=True, exist_ok=True)
 
-        if layer not in [1, 2, 3]:
-            raise ValueError(f"layer must be 1, 2, or 3, got {layer}")
-
-        layer_dir = layer_dirs[layer]
-        layer_dir.mkdir(parents=True, exist_ok=True)
-
-        graph_idx = 0
+        saved_count = 0
 
         with torch.no_grad():
-            for batch in tqdm(data_loader, desc=f"Extracting {split_name} activations (layer {layer})"):
+            for batch in tqdm(data_loader, desc=f"Extracting {split_name} activations"):
                 batch = batch.to(self.device)
 
                 # Forward pass with activation storage
                 _ = self.model(batch, store_activations=True)
-                h1, h2, h3 = self.model.get_activations()
-
-                # Select which layer to save
-                activations_map = {1: h1, 2: h2, 3: h3}
-                h_layer = activations_map[layer]
+                # Only retrieve layer2 activations (64-dim)
+                h2 = self.model.layer2_activations
 
                 # Split batch back into individual graphs
                 if hasattr(batch, 'batch'):
@@ -568,15 +535,24 @@ class GNNTrainer:
 
                     for b in unique_batches:
                         mask = batch_indices == b
-                        h_graph = h_layer[mask].cpu()
-                        torch.save(h_graph, layer_dir / f"graph_{graph_idx}.pt")
-                        graph_idx += 1
+
+                        # Extract layer2 activations for this graph
+                        h2_graph = h2[mask].cpu()
+
+                        # Get original graph ID from batch
+                        graph_id = int(batch.graph_id[b].item())
+
+                        # Save activations with original graph ID
+                        torch.save(h2_graph, layer2_dir / f"graph_{graph_id}.pt")
+
+                        saved_count += 1
                 else:
                     # Single graph
-                    torch.save(h_layer.cpu(), layer_dir / f"graph_{graph_idx}.pt")
-                    graph_idx += 1
+                    graph_id = int(batch.graph_id.item())
+                    torch.save(h2.cpu(), layer2_dir / f"graph_{graph_id}.pt")
+                    saved_count += 1
 
-        print(f"Saved layer {layer} activations for {graph_idx} graphs to {output_dir}/activations/layer{layer}/")
+        print(f"Saved layer2 activations for {saved_count} graphs to {output_dir}/activations/layer2/{split_name}/")
 
 
 def collate_fn(batch: List[Data]) -> Data:
@@ -730,55 +706,6 @@ def _save_json(data: Dict, path: str):
         json.dump(data, f, indent=2)
 
 
-def _save_split_metadata(graph_paths: List[Path], split_name: str) -> None:
-    """
-    Save metadata mapping for a data split.
-
-    Maps split indices (0-N) to original graph IDs and motif types.
-    This enables tracking which activation belongs to which original graph
-    when activations are stored sequentially per split (0-500 for test),
-    but original graph IDs contain motif information (0-3999 single, 4000-4999 mixed).
-
-    Args:
-        graph_paths: List of graph paths in the order they appear in split
-        split_name: Name of split (train/val/test)
-    """
-    metadata = {
-        "split": split_name,
-        "num_graphs": len(graph_paths),
-        "mappings": []
-    }
-
-    for split_idx, graph_path in enumerate(graph_paths):
-        graph_id = _extract_graph_id(graph_path)
-        motif_type = _infer_motif_label(graph_path)
-
-        metadata["mappings"].append({
-            "split_idx": split_idx,
-            "graph_id": graph_id,
-            "motif_type": motif_type,
-            "graph_path": str(graph_path)
-        })
-
-    # Save metadata
-    output_dir = Path("outputs/activation_metadata")
-    output_dir.mkdir(parents=True, exist_ok=True)
-    output_path = output_dir / f"{split_name}_metadata.json"
-
-    with open(output_path, 'w') as f:
-        json.dump(metadata, f, indent=2)
-
-    print(f"Saved {split_name} split metadata to {output_path}")
-
-    # Print summary
-    motif_counts = {}
-    for mapping in metadata["mappings"]:
-        motif = mapping["motif_type"]
-        motif_counts[motif] = motif_counts.get(motif, 0) + 1
-
-    print(f"  {split_name} motif distribution: {motif_counts}")
-
-
 def split_data(graph_paths: List[Path], train_ratio: float = 0.8,
                val_ratio: float = 0.1, seed: int = 42,
                stratify_by_motif: bool = True,
@@ -887,13 +814,18 @@ def main(model_type: str = "GCN"):
         all_graph_paths,
         seed=SEED,
         stratify_by_motif=True,
-        equal_counts_per_motif=True
+        equal_counts_per_motif=False
     )
     print(f"Split: {len(train_paths)} train, {len(val_paths)} val, {len(test_paths)} test")
     print("Motif distribution per split:")
     _print_split_stats("  Train", train_paths)
     _print_split_stats("  Val", val_paths)
     _print_split_stats("  Test", test_paths)
+
+    # Extract graph IDs for each split (for tracking and verification)
+    train_graph_ids = [int(p.stem.split('_')[1]) for p in train_paths]
+    val_graph_ids = [int(p.stem.split('_')[1]) for p in val_paths]
+    test_graph_ids = [int(p.stem.split('_')[1]) for p in test_paths]
 
     # Save metadata mapping for activations
     print("\nSaving activation metadata...")
@@ -990,6 +922,30 @@ def main(model_type: str = "GCN"):
     trainer.extract_and_save_activations(train_loader, "outputs", "train")
     trainer.extract_and_save_activations(val_loader, "outputs", "val")
     trainer.extract_and_save_activations(test_loader, "outputs", "test")
+
+    # Save graph ID mappings for reference
+    _save_json({"graph_ids": train_graph_ids}, "outputs/train_graph_ids.json")
+    _save_json({"graph_ids": val_graph_ids}, "outputs/val_graph_ids.json")
+    _save_json({"graph_ids": test_graph_ids}, "outputs/test_graph_ids.json")
+    print(f"Saved graph ID mappings to outputs/")
+
+    # Verify saved activations match their split
+    print("\nVerifying saved activations...")
+    layer2_dir = Path("outputs/activations/layer2")
+    if layer2_dir.exists():
+        for split, split_ids in [("train", train_graph_ids),
+                                ("val", val_graph_ids),
+                                ("test", test_graph_ids)]:
+            split_dir = layer2_dir / split
+            if split_dir.exists():
+                saved_files = list(split_dir.glob("graph_*.pt"))
+                if saved_files:
+                    sample_file = saved_files[0]
+                    sample_activation = torch.load(sample_file)
+                    file_graph_id = int(sample_file.stem.split('_')[1])
+
+                    if file_graph_id in split_ids:
+                        print(f"  ✓ {split}: {len(saved_files)} files verified")
 
     motif_metrics = {
         "train": _compute_motif_metrics(trainer, train_eval_loader),
