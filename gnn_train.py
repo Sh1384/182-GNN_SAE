@@ -47,83 +47,48 @@ def _infer_motif_label(graph_path: Path) -> str:
 
 
 class GraphDataset(Dataset):
-    """
-    Dataset for loading synthetic graphs with expression data.
-
-    Attributes:
-        graphs: List of tuples (graph_path, expression_data)
-        mask_prob: Probability of masking each node during training
-        rng: Random number generator
-    """
-
     def __init__(self, graph_paths: List[Path], mask_prob: float = 0.3, seed: int = 42):
-        """
-        Initialize the graph dataset.
-
-        Args:
-            graph_paths: List of paths to pickled graph files
-            mask_prob: Probability of masking nodes for prediction
-            seed: Random seed for reproducibility
-        """
         self.graph_paths = graph_paths
         self.mask_prob = mask_prob
-        self.rng = np.random.default_rng(seed)
+        self.base_seed = seed
 
     def __len__(self) -> int:
         return len(self.graph_paths)
 
     def __getitem__(self, idx: int) -> Data:
-        """
-        Load a graph and simulate expression values.
-
-        Args:
-            idx: Index of graph to load
-
-        Returns:
-            PyG Data object with node features, edge indices, and labels
-        """
-        # Load graph
         graph_path = self.graph_paths[idx]
         with open(graph_path, 'rb') as f:
             G = pickle.load(f)
 
-        # Extract graph ID from filename (graph_X.pkl -> X)
         graph_id = int(graph_path.stem.split('_')[1])
-
         motif_label = _infer_motif_label(graph_path)
         motif_id = MOTIF_TO_ID.get(motif_label, MOTIF_TO_ID["unknown"])
 
-        # Get adjacency matrix and simulate expression
+        local_seed = self.base_seed + graph_id
+        local_rng = np.random.default_rng(local_seed)
+
         import networkx as nx
         n_nodes = len(G.nodes())
         W = nx.to_numpy_array(G, weight='weight')
 
-        # Simulate expression dynamics
-        expression = self._simulate_expression(W)
+        expression = self._simulate_expression(W, rng=local_rng)
 
-        # Create mask for training (which nodes to predict)
-        mask = self.rng.random(n_nodes) < self.mask_prob
+        mask = local_rng.random(n_nodes) < self.mask_prob
         mask = torch.tensor(mask, dtype=torch.bool)
 
-        # Create node features: [normalized_expression, mask_flag]
-        # For masked nodes, set expression to 0
         expression_tensor = torch.tensor(expression, dtype=torch.float32)
         masked_expression = expression_tensor.clone()
         masked_expression[mask] = 0.0
 
-        # Normalize to [0, 1] range
         if masked_expression.max() > 0:
             masked_expression = masked_expression / (masked_expression.max() + 1e-8)
 
-        # Stack features
-        mask_flag = (~mask).float().unsqueeze(1)  # 1 if observed, 0 if masked
+        mask_flag = (~mask).float().unsqueeze(1)
         x = torch.cat([masked_expression.unsqueeze(1), mask_flag], dim=1)
 
-        # Create edge index from adjacency matrix
         edge_index = torch.tensor(np.array(np.nonzero(W)), dtype=torch.long)
         edge_weight = torch.tensor(W[W != 0], dtype=torch.float32)
 
-        # Create PyG Data object
         data = Data(
             x=x,
             edge_index=edge_index,
@@ -137,27 +102,16 @@ class GraphDataset(Dataset):
 
         return data
 
-    def _simulate_expression(self, W: np.ndarray, steps: int = 50,
-                            gamma: float = 0.3, noise_std: float = 0.01) -> np.ndarray:
-        """
-        Simulate gene expression dynamics.
-
-        Args:
-            W: Weighted adjacency matrix
-            steps: Number of simulation steps
-            gamma: Update rate parameter
-            noise_std: Standard deviation of Gaussian noise
-
-        Returns:
-            Final expression values
-        """
+    def _simulate_expression(self, W: np.ndarray, rng: np.random.Generator, 
+                             steps: int = 50, gamma: float = 0.3, 
+                             noise_std: float = 0.01) -> np.ndarray:
         n_nodes = W.shape[0]
-        x = self.rng.uniform(0, 1, size=n_nodes)
+        x = rng.uniform(0, 1, size=n_nodes)
 
         for _ in range(steps):
             weighted_input = W @ x
             sigmoid_input = 1.0 / (1.0 + np.exp(-np.clip(weighted_input, -10, 10)))
-            noise = self.rng.normal(0, noise_std, size=n_nodes)
+            noise = rng.normal(0, noise_std, size=n_nodes)
             x = (1 - gamma) * x + gamma * sigmoid_input + noise
             x = np.clip(x, 0, 1)
 
