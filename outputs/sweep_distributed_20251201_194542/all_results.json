@@ -1,0 +1,242 @@
+[
+  {
+    "trial_number": 3,
+    "gpu_id": 3,
+    "value": 0.004493140149861574,
+    "params": {
+      "hidden_dim": 184,
+      "dropout": 0.0,
+      "learning_rate": 0.07579479953348005
+    },
+    "status": "COMPLETE",
+    "elapsed_time": 688.490808725357
+  },
+  {
+    "trial_number": 2,
+    "gpu_id": 2,
+    "value": 0.0044965177658014,
+    "params": {
+      "hidden_dim": 24,
+      "dropout": 0.45,
+      "learning_rate": 0.002537815508265664
+    },
+    "status": "COMPLETE",
+    "elapsed_time": 865.6123976707458
+  },
+  {
+    "trial_number": 0,
+    "gpu_id": 0,
+    "value": 0.004485898884013295,
+    "params": {
+      "hidden_dim": 104,
+      "dropout": 0.5,
+      "learning_rate": 0.008471801418819975
+    },
+    "status": "COMPLETE",
+    "elapsed_time": 1402.885850906372
+  },
+  {
+    "trial_number": 1,
+    "gpu_id": 1,
+    "value": 0.14749761298298836,
+    "params": {
+      "hidden_dim": 160,
+      "dropout": 0.05,
+      "learning_rate": 4.207053950287933e-05
+    },
+    "status": "COMPLETE",
+    "elapsed_time": 1840.1779401302338
+  },
+  {
+    "trial_number": 5,
+    "gpu_id": 2,
+    "value": 0.004525593365542591,
+    "params": {
+      "hidden_dim": 56,
+      "dropout": 0.15000000000000002,
+      "learning_rate": 0.0012561043700013551
+    },
+    "status": "COMPLETE",
+    "elapsed_time": 1236.9549777507782
+  },
+  {
+    "trial_number": 6,
+    "gpu_id": 0,
+    "value": 0.004568394331727177,
+    "params": {
+      "hidden_dim": 120,
+      "dropout": 0.15000000000000002,
+      "learning_rate": 0.0028016351587162596
+    },
+    "status": "COMPLETE",
+    "elapsed_time": 851.1337451934814
+  },
+  {
+    "trial_number": 4,
+    "gpu_id": 3,
+    "value": 0.12916051782667637,
+    "params": {
+      "hidden_dim": 216,
+      "dropout": 0.1,
+      "learning_rate": 5.3370327626039544e-05
+    },
+    "status": "COMPLETE",
+    "elapsed_time": 1849.14084815979
+  },
+  {
+    "trial_number": 7,
+    "gpu_id": 1,
+    "value": 0.006002382840961218,
+    "params": {
+      "hidden_dim": 48,
+      "dropout": 0.15000000000000002,
+      "learning_rate": 0.0002920433847181409
+    },
+    "status": "COMPLETE",
+    "elapsed_time": 1861.9327702522278
+  },
+  {
+    "trial_number": 8,
+    "gpu_id": 2,
+    "value": 0.11774933710694313,
+    "params": {
+      "hidden_dim": 128,
+      "dropout": 0.4,
+      "learning_rate": 6.290644294586152e-05
+    },
+    "status": "COMPLETE",
+    "elapsed_time": 1860.9255802631378
+  },
+  {
+    "trial_number": 9,
+    "gpu_id": 0,
+    "value": 0.19634468480944633,
+    "params": {
+      "hidden_dim": 136,
+      "dropout": 0.30000000000000004,
+      "learning_rate": 1.5339162591163613e-05
+    },
+    "status": "COMPLETE",
+    "elapsed_time": 1845.3475768566132
+  },
+  {
+    "trial_number": 10,
+    "gpu_id": 3,
+    "value": 0.19139878451824188,
+    "params": {
+      "hidden_dim": 160,
+      "dropout": 0.05,
+      "learning_rate": 1.8205657658407255e-05
+    },
+    "status": "COMPLETE",
+    "elapsed_time": 1868.2125508785248
+  },
+  {
+    "trial_number": 12,
+    "gpu_id": 2,
+    "value": 0.004541385162156075,
+    "params": {
+      "hidden_dim": 88,
+      "dropout": 0.05,
+      "learning_rate": 0.005456725485601475
+    },
+    "status": "COMPLETE",
+    "elapsed_time": 847.8769752979279
+  },
+  {
+    "trial_number": 11,
+    "gpu_id": 1,
+    "value": 0.0044726726482622325,
+    "params": {
+      "hidden_dim": 248,
+      "dropout": 0.5,
+      "learning_rate": 0.01712337597316398
+    },
+    "status": "COMPLETE",
+    "elapsed_time": 1178.135850429535
+  },
+  {
+    "trial_number": 13,
+    "gpu_id": 0,
+    "value": 0.004556654661428183,
+    "params": {
+      "hidden_dim": 120,
+      "dropout": 0.05,
+      "learning_rate": 0.0009565499215943821
+    },
+    "status": "COMPLETE",
+    "elapsed_time": 1380.633409500122
+  },
+  {
+    "trial_number": 15,
+    "gpu_id": 2,
+    "value": 0.004558154323603958,
+    "params": {
+      "hidden_dim": 176,
+      "dropout": 0.15000000000000002,
+      "learning_rate": 0.0012030178871154666
+    },
+    "status": "COMPLETE",
+    "elapsed_time": 1186.7776110172272
+  },
+  {
+    "trial_number": 14,
+    "gpu_id": 3,
+    "value": 0.06599001307040453,
+    "params": {
+      "hidden_dim": 24,
+      "dropout": 0.5,
+      "learning_rate": 0.00010842262717330161
+    },
+    "status": "COMPLETE",
+    "elapsed_time": 1838.7026677131653
+  },
+  {
+    "trial_number": 16,
+    "gpu_id": 1,
+    "value": 0.0044789527310058475,
+    "params": {
+      "hidden_dim": 144,
+      "dropout": 0.1,
+      "learning_rate": 0.07556810141274425
+    },
+    "status": "COMPLETE",
+    "elapsed_time": 1387.828822851181
+  },
+  {
+    "trial_number": 17,
+    "gpu_id": 0,
+    "value": 0.004505665099713951,
+    "params": {
+      "hidden_dim": 208,
+      "dropout": 0.5,
+      "learning_rate": 0.03795853142670639
+    },
+    "status": "COMPLETE",
+    "elapsed_time": 796.96608710289
+  },
+  {
+    "trial_number": 18,
+    "gpu_id": 2,
+    "value": 0.18343741446733475,
+    "params": {
+      "hidden_dim": 160,
+      "dropout": 0.5,
+      "learning_rate": 2.259279742015695e-05
+    },
+    "status": "COMPLETE",
+    "elapsed_time": 1729.33571267128
+  },
+  {
+    "trial_number": 19,
+    "gpu_id": 3,
+    "value": 0.01738475216552615,
+    "params": {
+      "hidden_dim": 64,
+      "dropout": 0.0,
+      "learning_rate": 0.0002001342062287998
+    },
+    "status": "COMPLETE",
+    "elapsed_time": 1729.9963386058807
+  }
+]

@@ -112,9 +112,9 @@ class GraphDataset(Dataset):
     Dataset for loading synthetic graphs with expression data.
 
     Attributes:
-        graphs: List of tuples (graph_path, expression_data)
+        graph_paths: List of paths to graph files
         mask_prob: Probability of masking each node during training
-        rng: Random number generator
+        base_seed: Base random seed (each graph gets base_seed + graph_id)
     """
 
     def __init__(self, graph_paths: List[Path], mask_prob: float = 0.2, seed: int = 42):
@@ -128,7 +128,7 @@ class GraphDataset(Dataset):
         """
         self.graph_paths = graph_paths
         self.mask_prob = mask_prob
-        self.rng = np.random.default_rng(seed)
+        self.base_seed = seed
 
     def __len__(self) -> int:
         return len(self.graph_paths)
@@ -150,16 +150,25 @@ class GraphDataset(Dataset):
         motif_label = _infer_motif_label(self.graph_paths[idx])
         motif_id = MOTIF_TO_ID.get(motif_label, MOTIF_TO_ID["unknown"])
 
+        # Extract graph ID from filename (e.g., "graph_123.pkl" -> 123)
+        graph_id = _extract_graph_id(self.graph_paths[idx])
+        if graph_id is None:
+            # Fallback to index if extraction fails
+            graph_id = idx
+
+        # Create local RNG for this graph for deterministic, reproducible randomness
+        local_rng = np.random.default_rng(self.base_seed + graph_id)
+
         # Get adjacency matrix and simulate expression
         import networkx as nx
         n_nodes = len(G.nodes())
         W = nx.to_numpy_array(G, weight='weight')
 
         # Simulate expression dynamics
-        expression = self._simulate_expression(W)
+        expression = self._simulate_expression(W, rng=local_rng)
 
         # Create mask for training (which nodes to predict)
-        mask = self.rng.random(n_nodes) < self.mask_prob
+        mask = local_rng.random(n_nodes) < self.mask_prob
         mask = torch.tensor(mask, dtype=torch.bool)
 
         # Create node features: [normalized_expression, mask_flag]
@@ -190,16 +199,18 @@ class GraphDataset(Dataset):
             num_nodes=n_nodes
         )
         data.motif_id = torch.tensor([motif_id], dtype=torch.long)
+        data.graph_id = torch.tensor([graph_id], dtype=torch.long)
 
         return data
 
-    def _simulate_expression(self, W: np.ndarray, steps: int = 50,
-                            gamma: float = 0.3, noise_std: float = 0.01) -> np.ndarray:
+    def _simulate_expression(self, W: np.ndarray, rng: np.random.Generator,
+                            steps: int = 50, gamma: float = 0.3, noise_std: float = 0.01) -> np.ndarray:
         """
         Simulate gene expression dynamics.
 
         Args:
             W: Weighted adjacency matrix
+            rng: Random number generator for this graph
             steps: Number of simulation steps
             gamma: Update rate parameter
             noise_std: Standard deviation of Gaussian noise
@@ -208,12 +219,12 @@ class GraphDataset(Dataset):
             Final expression values
         """
         n_nodes = W.shape[0]
-        x = self.rng.uniform(0, 1, size=n_nodes)
+        x = rng.uniform(0, 1, size=n_nodes)
 
         for _ in range(steps):
             weighted_input = W @ x
             sigmoid_input = 1.0 / (1.0 + np.exp(-np.clip(weighted_input, -10, 10)))
-            noise = self.rng.normal(0, noise_std, size=n_nodes)
+            noise = rng.normal(0, noise_std, size=n_nodes)
             x = (1 - gamma) * x + gamma * sigmoid_input + noise
             x = np.clip(x, 0, 1)
 
@@ -546,7 +557,7 @@ class GNNTrainer:
         layer_dir = layer_dirs[layer]
         layer_dir.mkdir(parents=True, exist_ok=True)
 
-        graph_idx = 0
+        saved_count = 0
 
         with torch.no_grad():
             for batch in tqdm(data_loader, desc=f"Extracting {split_name} activations (layer {layer})"):
@@ -569,14 +580,20 @@ class GNNTrainer:
                     for b in unique_batches:
                         mask = batch_indices == b
                         h_graph = h_layer[mask].cpu()
-                        torch.save(h_graph, layer_dir / f"graph_{graph_idx}.pt")
-                        graph_idx += 1
+
+                        # Get original graph ID from batch
+                        graph_id = int(batch.graph_id[b].item())
+
+                        # Save activations with original graph ID
+                        torch.save(h_graph, layer_dir / f"graph_{graph_id}.pt")
+                        saved_count += 1
                 else:
                     # Single graph
-                    torch.save(h_layer.cpu(), layer_dir / f"graph_{graph_idx}.pt")
-                    graph_idx += 1
+                    graph_id = int(batch.graph_id.item())
+                    torch.save(h_layer.cpu(), layer_dir / f"graph_{graph_id}.pt")
+                    saved_count += 1
 
-        print(f"Saved layer {layer} activations for {graph_idx} graphs to {output_dir}/activations/layer{layer}/")
+        print(f"Saved layer {layer} activations for {saved_count} graphs to {output_dir}/activations/layer{layer}/")
 
 
 def collate_fn(batch: List[Data]) -> Data:
@@ -867,7 +884,7 @@ def main(model_type: str = "GCN"):
     DEVICE = 'cuda' if torch.cuda.is_available() else 'cpu'
     BATCH_SIZE = 128  # From MISATO paper for QM graph tasks 
     NUM_EPOCHS = 100  # Standard epochs with early stopping (patience=25) to prevent overfitting
-    LEARNING_RATE = 1e-3  # Standard learning rate for Adam optimizer with GNNs
+    LEARNING_RATE = 0.017  # Standard learning rate for Adam optimizer with GNNs
     MASK_PROB = 0.2  # Node masking probability for inductive learning task
                       # Selected to create moderate sparsity while maintaining sufficient signal
 
@@ -887,7 +904,7 @@ def main(model_type: str = "GCN"):
         all_graph_paths,
         seed=SEED,
         stratify_by_motif=True,
-        equal_counts_per_motif=True
+        equal_counts_per_motif=False
     )
     print(f"Split: {len(train_paths)} train, {len(val_paths)} val, {len(test_paths)} test")
     print("Motif distribution per split:")
@@ -932,7 +949,7 @@ def main(model_type: str = "GCN"):
         print("  - Layer 1: 2 -> 16 x 4 heads = 64 dims")
         print("  - Layer 2: 64 -> 1 (single-head)")
     elif model_type_upper == "GCN":
-        model = GCNModel(input_dim=2, hidden_dim=64, output_dim=1, dropout=0.2)
+        model = GCNModel(input_dim=2, hidden_dim=248, output_dim=1, dropout=0.5)
         model_name = "gnn_model.pt"
         print("\nInitialized GCN model")
     else:

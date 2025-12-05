@@ -34,16 +34,17 @@ SIGNIFICANCE_LEVEL = 0.05
 # Hyperparameter grid to test
 CONFIGS = [
     # (latent_dim, k, description)
+    (128, 4, "Low capacity, low sparsity"),
     (128, 16, "Low capacity, moderate sparsity"),
     (128, 8, "Low capacity, high sparsity"),
+    (256, 4, "Medium capacity, very low sparsity"),
     (256, 32, "Medium capacity, low sparsity"),
     (256, 16, "Medium capacity, moderate sparsity"),
     (256, 8, "Medium capacity, high sparsity"),
+    (512, 4, "High capacity, very low sparsity"),
     (512, 32, "High capacity, low sparsity"),
     (512, 16, "High capacity, moderate sparsity"),
     (512, 8, "High capacity, high sparsity"),
-    (1024, 32, "Very high capacity, moderate sparsity"),
-    (1024, 16, "Very high capacity, high sparsity"),
 ]
 
 def load_data_and_model(latent_dim, k):

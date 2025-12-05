@@ -1,23 +1,68 @@
 {
   "train": {
-    "unknown": {
-      "num_graphs": 3884,
-      "mean_masked_mse": 0.00588070004802109,
-      "std_masked_mse": 0.00805023719872571
+    "cascade": {
+      "num_graphs": 721,
+      "mean_masked_mse": 0.0034666872701379385,
+      "std_masked_mse": 0.003690927815832448
+    },
+    "feedback_loop": {
+      "num_graphs": 717,
+      "mean_masked_mse": 0.0029872860365904173,
+      "std_masked_mse": 0.0029117583255684316
+    },
+    "feedforward_loop": {
+      "num_graphs": 683,
+      "mean_masked_mse": 0.005124164465082406,
+      "std_masked_mse": 0.006609485680033551
+    },
+    "single_input_module": {
+      "num_graphs": 709,
+      "mean_masked_mse": 0.0031823876460175746,
+      "std_masked_mse": 0.007438078755324127
     }
   },
   "val": {
-    "unknown": {
-      "num_graphs": 481,
-      "mean_masked_mse": 0.006022289147316819,
-      "std_masked_mse": 0.008828676223041622
+    "cascade": {
+      "num_graphs": 91,
+      "mean_masked_mse": 0.003797390204549079,
+      "std_masked_mse": 0.00389675607262682
+    },
+    "feedback_loop": {
+      "num_graphs": 93,
+      "mean_masked_mse": 0.0033846738946862534,
+      "std_masked_mse": 0.003340189952353429
+    },
+    "feedforward_loop": {
+      "num_graphs": 90,
+      "mean_masked_mse": 0.005871819199811057,
+      "std_masked_mse": 0.00901249615300113
+    },
+    "single_input_module": {
+      "num_graphs": 92,
+      "mean_masked_mse": 0.002863479865732659,
+      "std_masked_mse": 0.006212914387210581
     }
   },
   "test": {
-    "unknown": {
-      "num_graphs": 488,
-      "mean_masked_mse": 0.005036146282875609,
-      "std_masked_mse": 0.006861526162329661
+    "cascade": {
+      "num_graphs": 94,
+      "mean_masked_mse": 0.003667994348725091,
+      "std_masked_mse": 0.0039050481506690614
+    },
+    "feedback_loop": {
+      "num_graphs": 92,
+      "mean_masked_mse": 0.002736525527671288,
+      "std_masked_mse": 0.00242629053507034
+    },
+    "feedforward_loop": {
+      "num_graphs": 87,
+      "mean_masked_mse": 0.00434843082084564,
+      "std_masked_mse": 0.006204846626481446
+    },
+    "single_input_module": {
+      "num_graphs": 87,
+      "mean_masked_mse": 0.004843599626615966,
+      "std_masked_mse": 0.011617410376475307
     }
   }
 }

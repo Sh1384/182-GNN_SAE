@@ -1,0 +1,2406 @@
+{
+  "split": "val",
+  "num_graphs": 400,
+  "mappings": [
+    {
+      "split_idx": 0,
+      "graph_id": 2202,
+      "motif_type": "single_input_module",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_2202.pkl"
+    },
+    {
+      "split_idx": 1,
+      "graph_id": 302,
+      "motif_type": "feedforward_loop",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_302.pkl"
+    },
+    {
+      "split_idx": 2,
+      "graph_id": 1995,
+      "motif_type": "feedback_loop",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_1995.pkl"
+    },
+    {
+      "split_idx": 3,
+      "graph_id": 1128,
+      "motif_type": "feedback_loop",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_1128.pkl"
+    },
+    {
+      "split_idx": 4,
+      "graph_id": 2764,
+      "motif_type": "single_input_module",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_2764.pkl"
+    },
+    {
+      "split_idx": 5,
+      "graph_id": 3577,
+      "motif_type": "cascade",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_3577.pkl"
+    },
+    {
+      "split_idx": 6,
+      "graph_id": 877,
+      "motif_type": "feedforward_loop",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_877.pkl"
+    },
+    {
+      "split_idx": 7,
+      "graph_id": 2741,
+      "motif_type": "single_input_module",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_2741.pkl"
+    },
+    {
+      "split_idx": 8,
+      "graph_id": 2273,
+      "motif_type": "single_input_module",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_2273.pkl"
+    },
+    {
+      "split_idx": 9,
+      "graph_id": 3738,
+      "motif_type": "cascade",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_3738.pkl"
+    },
+    {
+      "split_idx": 10,
+      "graph_id": 548,
+      "motif_type": "feedforward_loop",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_548.pkl"
+    },
+    {
+      "split_idx": 11,
+      "graph_id": 3574,
+      "motif_type": "cascade",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_3574.pkl"
+    },
+    {
+      "split_idx": 12,
+      "graph_id": 2638,
+      "motif_type": "single_input_module",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_2638.pkl"
+    },
+    {
+      "split_idx": 13,
+      "graph_id": 1710,
+      "motif_type": "feedback_loop",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_1710.pkl"
+    },
+    {
+      "split_idx": 14,
+      "graph_id": 1981,
+      "motif_type": "feedback_loop",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_1981.pkl"
+    },
+    {
+      "split_idx": 15,
+      "graph_id": 1015,
+      "motif_type": "feedback_loop",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_1015.pkl"
+    },
+    {
+      "split_idx": 16,
+      "graph_id": 446,
+      "motif_type": "feedforward_loop",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_446.pkl"
+    },
+    {
+      "split_idx": 17,
+      "graph_id": 2659,
+      "motif_type": "single_input_module",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_2659.pkl"
+    },
+    {
+      "split_idx": 18,
+      "graph_id": 2862,
+      "motif_type": "single_input_module",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_2862.pkl"
+    },
+    {
+      "split_idx": 19,
+      "graph_id": 3137,
+      "motif_type": "cascade",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_3137.pkl"
+    },
+    {
+      "split_idx": 20,
+      "graph_id": 1193,
+      "motif_type": "feedback_loop",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_1193.pkl"
+    },
+    {
+      "split_idx": 21,
+      "graph_id": 552,
+      "motif_type": "feedforward_loop",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_552.pkl"
+    },
+    {
+      "split_idx": 22,
+      "graph_id": 3171,
+      "motif_type": "cascade",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_3171.pkl"
+    },
+    {
+      "split_idx": 23,
+      "graph_id": 2155,
+      "motif_type": "single_input_module",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_2155.pkl"
+    },
+    {
+      "split_idx": 24,
+      "graph_id": 3544,
+      "motif_type": "cascade",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_3544.pkl"
+    },
+    {
+      "split_idx": 25,
+      "graph_id": 2531,
+      "motif_type": "single_input_module",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_2531.pkl"
+    },
+    {
+      "split_idx": 26,
+      "graph_id": 602,
+      "motif_type": "feedforward_loop",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_602.pkl"
+    },
+    {
+      "split_idx": 27,
+      "graph_id": 449,
+      "motif_type": "feedforward_loop",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_449.pkl"
+    },
+    {
+      "split_idx": 28,
+      "graph_id": 889,
+      "motif_type": "feedforward_loop",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_889.pkl"
+    },
+    {
+      "split_idx": 29,
+      "graph_id": 739,
+      "motif_type": "feedforward_loop",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_739.pkl"
+    },
+    {
+      "split_idx": 30,
+      "graph_id": 1421,
+      "motif_type": "feedback_loop",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_1421.pkl"
+    },
+    {
+      "split_idx": 31,
+      "graph_id": 1665,
+      "motif_type": "feedback_loop",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_1665.pkl"
+    },
+    {
+      "split_idx": 32,
+      "graph_id": 1474,
+      "motif_type": "feedback_loop",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_1474.pkl"
+    },
+    {
+      "split_idx": 33,
+      "graph_id": 473,
+      "motif_type": "feedforward_loop",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_473.pkl"
+    },
+    {
+      "split_idx": 34,
+      "graph_id": 3949,
+      "motif_type": "cascade",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_3949.pkl"
+    },
+    {
+      "split_idx": 35,
+      "graph_id": 83,
+      "motif_type": "feedforward_loop",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_83.pkl"
+    },
+    {
+      "split_idx": 36,
+      "graph_id": 1488,
+      "motif_type": "feedback_loop",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_1488.pkl"
+    },
+    {
+      "split_idx": 37,
+      "graph_id": 3040,
+      "motif_type": "cascade",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_3040.pkl"
+    },
+    {
+      "split_idx": 38,
+      "graph_id": 1156,
+      "motif_type": "feedback_loop",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_1156.pkl"
+    },
+    {
+      "split_idx": 39,
+      "graph_id": 395,
+      "motif_type": "feedforward_loop",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_395.pkl"
+    },
+    {
+      "split_idx": 40,
+      "graph_id": 1226,
+      "motif_type": "feedback_loop",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_1226.pkl"
+    },
+    {
+      "split_idx": 41,
+      "graph_id": 27,
+      "motif_type": "feedforward_loop",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_27.pkl"
+    },
+    {
+      "split_idx": 42,
+      "graph_id": 3219,
+      "motif_type": "cascade",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_3219.pkl"
+    },
+    {
+      "split_idx": 43,
+      "graph_id": 133,
+      "motif_type": "feedforward_loop",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_133.pkl"
+    },
+    {
+      "split_idx": 44,
+      "graph_id": 3269,
+      "motif_type": "cascade",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_3269.pkl"
+    },
+    {
+      "split_idx": 45,
+      "graph_id": 1389,
+      "motif_type": "feedback_loop",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_1389.pkl"
+    },
+    {
+      "split_idx": 46,
+      "graph_id": 2344,
+      "motif_type": "single_input_module",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_2344.pkl"
+    },
+    {
+      "split_idx": 47,
+      "graph_id": 2701,
+      "motif_type": "single_input_module",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_2701.pkl"
+    },
+    {
+      "split_idx": 48,
+      "graph_id": 2203,
+      "motif_type": "single_input_module",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_2203.pkl"
+    },
+    {
+      "split_idx": 49,
+      "graph_id": 1601,
+      "motif_type": "feedback_loop",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_1601.pkl"
+    },
+    {
+      "split_idx": 50,
+      "graph_id": 1329,
+      "motif_type": "feedback_loop",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_1329.pkl"
+    },
+    {
+      "split_idx": 51,
+      "graph_id": 3955,
+      "motif_type": "cascade",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_3955.pkl"
+    },
+    {
+      "split_idx": 52,
+      "graph_id": 3467,
+      "motif_type": "cascade",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_3467.pkl"
+    },
+    {
+      "split_idx": 53,
+      "graph_id": 3930,
+      "motif_type": "cascade",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_3930.pkl"
+    },
+    {
+      "split_idx": 54,
+      "graph_id": 1850,
+      "motif_type": "feedback_loop",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_1850.pkl"
+    },
+    {
+      "split_idx": 55,
+      "graph_id": 2126,
+      "motif_type": "single_input_module",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_2126.pkl"
+    },
+    {
+      "split_idx": 56,
+      "graph_id": 3036,
+      "motif_type": "cascade",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_3036.pkl"
+    },
+    {
+      "split_idx": 57,
+      "graph_id": 2295,
+      "motif_type": "single_input_module",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_2295.pkl"
+    },
+    {
+      "split_idx": 58,
+      "graph_id": 2180,
+      "motif_type": "single_input_module",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_2180.pkl"
+    },
+    {
+      "split_idx": 59,
+      "graph_id": 2952,
+      "motif_type": "single_input_module",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_2952.pkl"
+    },
+    {
+      "split_idx": 60,
+      "graph_id": 1529,
+      "motif_type": "feedback_loop",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_1529.pkl"
+    },
+    {
+      "split_idx": 61,
+      "graph_id": 7,
+      "motif_type": "feedforward_loop",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_7.pkl"
+    },
+    {
+      "split_idx": 62,
+      "graph_id": 35,
+      "motif_type": "feedforward_loop",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_35.pkl"
+    },
+    {
+      "split_idx": 63,
+      "graph_id": 3524,
+      "motif_type": "cascade",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_3524.pkl"
+    },
+    {
+      "split_idx": 64,
+      "graph_id": 2656,
+      "motif_type": "single_input_module",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_2656.pkl"
+    },
+    {
+      "split_idx": 65,
+      "graph_id": 3751,
+      "motif_type": "cascade",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_3751.pkl"
+    },
+    {
+      "split_idx": 66,
+      "graph_id": 3808,
+      "motif_type": "cascade",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_3808.pkl"
+    },
+    {
+      "split_idx": 67,
+      "graph_id": 3988,
+      "motif_type": "cascade",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_3988.pkl"
+    },
+    {
+      "split_idx": 68,
+      "graph_id": 444,
+      "motif_type": "feedforward_loop",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_444.pkl"
+    },
+    {
+      "split_idx": 69,
+      "graph_id": 1002,
+      "motif_type": "feedback_loop",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_1002.pkl"
+    },
+    {
+      "split_idx": 70,
+      "graph_id": 1815,
+      "motif_type": "feedback_loop",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_1815.pkl"
+    },
+    {
+      "split_idx": 71,
+      "graph_id": 3631,
+      "motif_type": "cascade",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_3631.pkl"
+    },
+    {
+      "split_idx": 72,
+      "graph_id": 1757,
+      "motif_type": "feedback_loop",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_1757.pkl"
+    },
+    {
+      "split_idx": 73,
+      "graph_id": 2411,
+      "motif_type": "single_input_module",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_2411.pkl"
+    },
+    {
+      "split_idx": 74,
+      "graph_id": 2689,
+      "motif_type": "single_input_module",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_2689.pkl"
+    },
+    {
+      "split_idx": 75,
+      "graph_id": 3689,
+      "motif_type": "cascade",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_3689.pkl"
+    },
+    {
+      "split_idx": 76,
+      "graph_id": 1865,
+      "motif_type": "feedback_loop",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_1865.pkl"
+    },
+    {
+      "split_idx": 77,
+      "graph_id": 3849,
+      "motif_type": "cascade",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_3849.pkl"
+    },
+    {
+      "split_idx": 78,
+      "graph_id": 1705,
+      "motif_type": "feedback_loop",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_1705.pkl"
+    },
+    {
+      "split_idx": 79,
+      "graph_id": 3752,
+      "motif_type": "cascade",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_3752.pkl"
+    },
+    {
+      "split_idx": 80,
+      "graph_id": 2158,
+      "motif_type": "single_input_module",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_2158.pkl"
+    },
+    {
+      "split_idx": 81,
+      "graph_id": 1382,
+      "motif_type": "feedback_loop",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_1382.pkl"
+    },
+    {
+      "split_idx": 82,
+      "graph_id": 2729,
+      "motif_type": "single_input_module",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_2729.pkl"
+    },
+    {
+      "split_idx": 83,
+      "graph_id": 2187,
+      "motif_type": "single_input_module",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_2187.pkl"
+    },
+    {
+      "split_idx": 84,
+      "graph_id": 2384,
+      "motif_type": "single_input_module",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_2384.pkl"
+    },
+    {
+      "split_idx": 85,
+      "graph_id": 1962,
+      "motif_type": "feedback_loop",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_1962.pkl"
+    },
+    {
+      "split_idx": 86,
+      "graph_id": 3962,
+      "motif_type": "cascade",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_3962.pkl"
+    },
+    {
+      "split_idx": 87,
+      "graph_id": 194,
+      "motif_type": "feedforward_loop",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_194.pkl"
+    },
+    {
+      "split_idx": 88,
+      "graph_id": 1688,
+      "motif_type": "feedback_loop",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_1688.pkl"
+    },
+    {
+      "split_idx": 89,
+      "graph_id": 3155,
+      "motif_type": "cascade",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_3155.pkl"
+    },
+    {
+      "split_idx": 90,
+      "graph_id": 2428,
+      "motif_type": "single_input_module",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_2428.pkl"
+    },
+    {
+      "split_idx": 91,
+      "graph_id": 3051,
+      "motif_type": "cascade",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_3051.pkl"
+    },
+    {
+      "split_idx": 92,
+      "graph_id": 3845,
+      "motif_type": "cascade",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_3845.pkl"
+    },
+    {
+      "split_idx": 93,
+      "graph_id": 2208,
+      "motif_type": "single_input_module",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_2208.pkl"
+    },
+    {
+      "split_idx": 94,
+      "graph_id": 1540,
+      "motif_type": "feedback_loop",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_1540.pkl"
+    },
+    {
+      "split_idx": 95,
+      "graph_id": 2965,
+      "motif_type": "single_input_module",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_2965.pkl"
+    },
+    {
+      "split_idx": 96,
+      "graph_id": 3899,
+      "motif_type": "cascade",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_3899.pkl"
+    },
+    {
+      "split_idx": 97,
+      "graph_id": 1861,
+      "motif_type": "feedback_loop",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_1861.pkl"
+    },
+    {
+      "split_idx": 98,
+      "graph_id": 2547,
+      "motif_type": "single_input_module",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_2547.pkl"
+    },
+    {
+      "split_idx": 99,
+      "graph_id": 2563,
+      "motif_type": "single_input_module",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_2563.pkl"
+    },
+    {
+      "split_idx": 100,
+      "graph_id": 2154,
+      "motif_type": "single_input_module",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_2154.pkl"
+    },
+    {
+      "split_idx": 101,
+      "graph_id": 3248,
+      "motif_type": "cascade",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_3248.pkl"
+    },
+    {
+      "split_idx": 102,
+      "graph_id": 3423,
+      "motif_type": "cascade",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_3423.pkl"
+    },
+    {
+      "split_idx": 103,
+      "graph_id": 3428,
+      "motif_type": "cascade",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_3428.pkl"
+    },
+    {
+      "split_idx": 104,
+      "graph_id": 3207,
+      "motif_type": "cascade",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_3207.pkl"
+    },
+    {
+      "split_idx": 105,
+      "graph_id": 1576,
+      "motif_type": "feedback_loop",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_1576.pkl"
+    },
+    {
+      "split_idx": 106,
+      "graph_id": 2288,
+      "motif_type": "single_input_module",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_2288.pkl"
+    },
+    {
+      "split_idx": 107,
+      "graph_id": 2690,
+      "motif_type": "single_input_module",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_2690.pkl"
+    },
+    {
+      "split_idx": 108,
+      "graph_id": 2521,
+      "motif_type": "single_input_module",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_2521.pkl"
+    },
+    {
+      "split_idx": 109,
+      "graph_id": 200,
+      "motif_type": "feedforward_loop",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_200.pkl"
+    },
+    {
+      "split_idx": 110,
+      "graph_id": 1126,
+      "motif_type": "feedback_loop",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_1126.pkl"
+    },
+    {
+      "split_idx": 111,
+      "graph_id": 3371,
+      "motif_type": "cascade",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_3371.pkl"
+    },
+    {
+      "split_idx": 112,
+      "graph_id": 1690,
+      "motif_type": "feedback_loop",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_1690.pkl"
+    },
+    {
+      "split_idx": 113,
+      "graph_id": 1503,
+      "motif_type": "feedback_loop",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_1503.pkl"
+    },
+    {
+      "split_idx": 114,
+      "graph_id": 3445,
+      "motif_type": "cascade",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_3445.pkl"
+    },
+    {
+      "split_idx": 115,
+      "graph_id": 925,
+      "motif_type": "feedforward_loop",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_925.pkl"
+    },
+    {
+      "split_idx": 116,
+      "graph_id": 208,
+      "motif_type": "feedforward_loop",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_208.pkl"
+    },
+    {
+      "split_idx": 117,
+      "graph_id": 843,
+      "motif_type": "feedforward_loop",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_843.pkl"
+    },
+    {
+      "split_idx": 118,
+      "graph_id": 3886,
+      "motif_type": "cascade",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_3886.pkl"
+    },
+    {
+      "split_idx": 119,
+      "graph_id": 1764,
+      "motif_type": "feedback_loop",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_1764.pkl"
+    },
+    {
+      "split_idx": 120,
+      "graph_id": 3430,
+      "motif_type": "cascade",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_3430.pkl"
+    },
+    {
+      "split_idx": 121,
+      "graph_id": 3113,
+      "motif_type": "cascade",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_3113.pkl"
+    },
+    {
+      "split_idx": 122,
+      "graph_id": 2674,
+      "motif_type": "single_input_module",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_2674.pkl"
+    },
+    {
+      "split_idx": 123,
+      "graph_id": 2264,
+      "motif_type": "single_input_module",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_2264.pkl"
+    },
+    {
+      "split_idx": 124,
+      "graph_id": 1508,
+      "motif_type": "feedback_loop",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_1508.pkl"
+    },
+    {
+      "split_idx": 125,
+      "graph_id": 3388,
+      "motif_type": "cascade",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_3388.pkl"
+    },
+    {
+      "split_idx": 126,
+      "graph_id": 1112,
+      "motif_type": "feedback_loop",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_1112.pkl"
+    },
+    {
+      "split_idx": 127,
+      "graph_id": 2834,
+      "motif_type": "single_input_module",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_2834.pkl"
+    },
+    {
+      "split_idx": 128,
+      "graph_id": 348,
+      "motif_type": "feedforward_loop",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_348.pkl"
+    },
+    {
+      "split_idx": 129,
+      "graph_id": 455,
+      "motif_type": "feedforward_loop",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_455.pkl"
+    },
+    {
+      "split_idx": 130,
+      "graph_id": 3263,
+      "motif_type": "cascade",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_3263.pkl"
+    },
+    {
+      "split_idx": 131,
+      "graph_id": 1632,
+      "motif_type": "feedback_loop",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_1632.pkl"
+    },
+    {
+      "split_idx": 132,
+      "graph_id": 1229,
+      "motif_type": "feedback_loop",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_1229.pkl"
+    },
+    {
+      "split_idx": 133,
+      "graph_id": 1525,
+      "motif_type": "feedback_loop",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_1525.pkl"
+    },
+    {
+      "split_idx": 134,
+      "graph_id": 63,
+      "motif_type": "feedforward_loop",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_63.pkl"
+    },
+    {
+      "split_idx": 135,
+      "graph_id": 1827,
+      "motif_type": "feedback_loop",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_1827.pkl"
+    },
+    {
+      "split_idx": 136,
+      "graph_id": 2902,
+      "motif_type": "single_input_module",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_2902.pkl"
+    },
+    {
+      "split_idx": 137,
+      "graph_id": 406,
+      "motif_type": "feedforward_loop",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_406.pkl"
+    },
+    {
+      "split_idx": 138,
+      "graph_id": 876,
+      "motif_type": "feedforward_loop",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_876.pkl"
+    },
+    {
+      "split_idx": 139,
+      "graph_id": 902,
+      "motif_type": "feedforward_loop",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_902.pkl"
+    },
+    {
+      "split_idx": 140,
+      "graph_id": 2962,
+      "motif_type": "single_input_module",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_2962.pkl"
+    },
+    {
+      "split_idx": 141,
+      "graph_id": 965,
+      "motif_type": "feedforward_loop",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_965.pkl"
+    },
+    {
+      "split_idx": 142,
+      "graph_id": 1443,
+      "motif_type": "feedback_loop",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_1443.pkl"
+    },
+    {
+      "split_idx": 143,
+      "graph_id": 3290,
+      "motif_type": "cascade",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_3290.pkl"
+    },
+    {
+      "split_idx": 144,
+      "graph_id": 1097,
+      "motif_type": "feedback_loop",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_1097.pkl"
+    },
+    {
+      "split_idx": 145,
+      "graph_id": 1571,
+      "motif_type": "feedback_loop",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_1571.pkl"
+    },
+    {
+      "split_idx": 146,
+      "graph_id": 1741,
+      "motif_type": "feedback_loop",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_1741.pkl"
+    },
+    {
+      "split_idx": 147,
+      "graph_id": 3104,
+      "motif_type": "cascade",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_3104.pkl"
+    },
+    {
+      "split_idx": 148,
+      "graph_id": 436,
+      "motif_type": "feedforward_loop",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_436.pkl"
+    },
+    {
+      "split_idx": 149,
+      "graph_id": 3837,
+      "motif_type": "cascade",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_3837.pkl"
+    },
+    {
+      "split_idx": 150,
+      "graph_id": 2600,
+      "motif_type": "single_input_module",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_2600.pkl"
+    },
+    {
+      "split_idx": 151,
+      "graph_id": 3114,
+      "motif_type": "cascade",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_3114.pkl"
+    },
+    {
+      "split_idx": 152,
+      "graph_id": 2542,
+      "motif_type": "single_input_module",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_2542.pkl"
+    },
+    {
+      "split_idx": 153,
+      "graph_id": 3595,
+      "motif_type": "cascade",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_3595.pkl"
+    },
+    {
+      "split_idx": 154,
+      "graph_id": 3131,
+      "motif_type": "cascade",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_3131.pkl"
+    },
+    {
+      "split_idx": 155,
+      "graph_id": 338,
+      "motif_type": "feedforward_loop",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_338.pkl"
+    },
+    {
+      "split_idx": 156,
+      "graph_id": 865,
+      "motif_type": "feedforward_loop",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_865.pkl"
+    },
+    {
+      "split_idx": 157,
+      "graph_id": 3054,
+      "motif_type": "cascade",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_3054.pkl"
+    },
+    {
+      "split_idx": 158,
+      "graph_id": 1890,
+      "motif_type": "feedback_loop",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_1890.pkl"
+    },
+    {
+      "split_idx": 159,
+      "graph_id": 1251,
+      "motif_type": "feedback_loop",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_1251.pkl"
+    },
+    {
+      "split_idx": 160,
+      "graph_id": 2571,
+      "motif_type": "single_input_module",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_2571.pkl"
+    },
+    {
+      "split_idx": 161,
+      "graph_id": 2539,
+      "motif_type": "single_input_module",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_2539.pkl"
+    },
+    {
+      "split_idx": 162,
+      "graph_id": 2942,
+      "motif_type": "single_input_module",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_2942.pkl"
+    },
+    {
+      "split_idx": 163,
+      "graph_id": 267,
+      "motif_type": "feedforward_loop",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_267.pkl"
+    },
+    {
+      "split_idx": 164,
+      "graph_id": 3254,
+      "motif_type": "cascade",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_3254.pkl"
+    },
+    {
+      "split_idx": 165,
+      "graph_id": 102,
+      "motif_type": "feedforward_loop",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_102.pkl"
+    },
+    {
+      "split_idx": 166,
+      "graph_id": 3157,
+      "motif_type": "cascade",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_3157.pkl"
+    },
+    {
+      "split_idx": 167,
+      "graph_id": 534,
+      "motif_type": "feedforward_loop",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_534.pkl"
+    },
+    {
+      "split_idx": 168,
+      "graph_id": 3501,
+      "motif_type": "cascade",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_3501.pkl"
+    },
+    {
+      "split_idx": 169,
+      "graph_id": 251,
+      "motif_type": "feedforward_loop",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_251.pkl"
+    },
+    {
+      "split_idx": 170,
+      "graph_id": 1978,
+      "motif_type": "feedback_loop",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_1978.pkl"
+    },
+    {
+      "split_idx": 171,
+      "graph_id": 171,
+      "motif_type": "feedforward_loop",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_171.pkl"
+    },
+    {
+      "split_idx": 172,
+      "graph_id": 2824,
+      "motif_type": "single_input_module",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_2824.pkl"
+    },
+    {
+      "split_idx": 173,
+      "graph_id": 2587,
+      "motif_type": "single_input_module",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_2587.pkl"
+    },
+    {
+      "split_idx": 174,
+      "graph_id": 526,
+      "motif_type": "feedforward_loop",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_526.pkl"
+    },
+    {
+      "split_idx": 175,
+      "graph_id": 3785,
+      "motif_type": "cascade",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_3785.pkl"
+    },
+    {
+      "split_idx": 176,
+      "graph_id": 403,
+      "motif_type": "feedforward_loop",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_403.pkl"
+    },
+    {
+      "split_idx": 177,
+      "graph_id": 2864,
+      "motif_type": "single_input_module",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_2864.pkl"
+    },
+    {
+      "split_idx": 178,
+      "graph_id": 3855,
+      "motif_type": "cascade",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_3855.pkl"
+    },
+    {
+      "split_idx": 179,
+      "graph_id": 2645,
+      "motif_type": "single_input_module",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_2645.pkl"
+    },
+    {
+      "split_idx": 180,
+      "graph_id": 531,
+      "motif_type": "feedforward_loop",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_531.pkl"
+    },
+    {
+      "split_idx": 181,
+      "graph_id": 3266,
+      "motif_type": "cascade",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_3266.pkl"
+    },
+    {
+      "split_idx": 182,
+      "graph_id": 497,
+      "motif_type": "feedforward_loop",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_497.pkl"
+    },
+    {
+      "split_idx": 183,
+      "graph_id": 1716,
+      "motif_type": "feedback_loop",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_1716.pkl"
+    },
+    {
+      "split_idx": 184,
+      "graph_id": 410,
+      "motif_type": "feedforward_loop",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_410.pkl"
+    },
+    {
+      "split_idx": 185,
+      "graph_id": 3018,
+      "motif_type": "cascade",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_3018.pkl"
+    },
+    {
+      "split_idx": 186,
+      "graph_id": 1949,
+      "motif_type": "feedback_loop",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_1949.pkl"
+    },
+    {
+      "split_idx": 187,
+      "graph_id": 2320,
+      "motif_type": "single_input_module",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_2320.pkl"
+    },
+    {
+      "split_idx": 188,
+      "graph_id": 495,
+      "motif_type": "feedforward_loop",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_495.pkl"
+    },
+    {
+      "split_idx": 189,
+      "graph_id": 1042,
+      "motif_type": "feedback_loop",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_1042.pkl"
+    },
+    {
+      "split_idx": 190,
+      "graph_id": 806,
+      "motif_type": "feedforward_loop",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_806.pkl"
+    },
+    {
+      "split_idx": 191,
+      "graph_id": 3140,
+      "motif_type": "cascade",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_3140.pkl"
+    },
+    {
+      "split_idx": 192,
+      "graph_id": 2312,
+      "motif_type": "single_input_module",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_2312.pkl"
+    },
+    {
+      "split_idx": 193,
+      "graph_id": 1900,
+      "motif_type": "feedback_loop",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_1900.pkl"
+    },
+    {
+      "split_idx": 194,
+      "graph_id": 3739,
+      "motif_type": "cascade",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_3739.pkl"
+    },
+    {
+      "split_idx": 195,
+      "graph_id": 1924,
+      "motif_type": "feedback_loop",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_1924.pkl"
+    },
+    {
+      "split_idx": 196,
+      "graph_id": 3472,
+      "motif_type": "cascade",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_3472.pkl"
+    },
+    {
+      "split_idx": 197,
+      "graph_id": 864,
+      "motif_type": "feedforward_loop",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_864.pkl"
+    },
+    {
+      "split_idx": 198,
+      "graph_id": 2749,
+      "motif_type": "single_input_module",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_2749.pkl"
+    },
+    {
+      "split_idx": 199,
+      "graph_id": 2655,
+      "motif_type": "single_input_module",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_2655.pkl"
+    },
+    {
+      "split_idx": 200,
+      "graph_id": 1484,
+      "motif_type": "feedback_loop",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_1484.pkl"
+    },
+    {
+      "split_idx": 201,
+      "graph_id": 3478,
+      "motif_type": "cascade",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_3478.pkl"
+    },
+    {
+      "split_idx": 202,
+      "graph_id": 1068,
+      "motif_type": "feedback_loop",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_1068.pkl"
+    },
+    {
+      "split_idx": 203,
+      "graph_id": 505,
+      "motif_type": "feedforward_loop",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_505.pkl"
+    },
+    {
+      "split_idx": 204,
+      "graph_id": 456,
+      "motif_type": "feedforward_loop",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_456.pkl"
+    },
+    {
+      "split_idx": 205,
+      "graph_id": 298,
+      "motif_type": "feedforward_loop",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_298.pkl"
+    },
+    {
+      "split_idx": 206,
+      "graph_id": 39,
+      "motif_type": "feedforward_loop",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_39.pkl"
+    },
+    {
+      "split_idx": 207,
+      "graph_id": 3593,
+      "motif_type": "cascade",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_3593.pkl"
+    },
+    {
+      "split_idx": 208,
+      "graph_id": 3440,
+      "motif_type": "cascade",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_3440.pkl"
+    },
+    {
+      "split_idx": 209,
+      "graph_id": 2449,
+      "motif_type": "single_input_module",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_2449.pkl"
+    },
+    {
+      "split_idx": 210,
+      "graph_id": 3542,
+      "motif_type": "cascade",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_3542.pkl"
+    },
+    {
+      "split_idx": 211,
+      "graph_id": 556,
+      "motif_type": "feedforward_loop",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_556.pkl"
+    },
+    {
+      "split_idx": 212,
+      "graph_id": 2888,
+      "motif_type": "single_input_module",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_2888.pkl"
+    },
+    {
+      "split_idx": 213,
+      "graph_id": 1948,
+      "motif_type": "feedback_loop",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_1948.pkl"
+    },
+    {
+      "split_idx": 214,
+      "graph_id": 193,
+      "motif_type": "feedforward_loop",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_193.pkl"
+    },
+    {
+      "split_idx": 215,
+      "graph_id": 269,
+      "motif_type": "feedforward_loop",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_269.pkl"
+    },
+    {
+      "split_idx": 216,
+      "graph_id": 81,
+      "motif_type": "feedforward_loop",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_81.pkl"
+    },
+    {
+      "split_idx": 217,
+      "graph_id": 1715,
+      "motif_type": "feedback_loop",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_1715.pkl"
+    },
+    {
+      "split_idx": 218,
+      "graph_id": 2933,
+      "motif_type": "single_input_module",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_2933.pkl"
+    },
+    {
+      "split_idx": 219,
+      "graph_id": 1176,
+      "motif_type": "feedback_loop",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_1176.pkl"
+    },
+    {
+      "split_idx": 220,
+      "graph_id": 652,
+      "motif_type": "feedforward_loop",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_652.pkl"
+    },
+    {
+      "split_idx": 221,
+      "graph_id": 3959,
+      "motif_type": "cascade",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_3959.pkl"
+    },
+    {
+      "split_idx": 222,
+      "graph_id": 2513,
+      "motif_type": "single_input_module",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_2513.pkl"
+    },
+    {
+      "split_idx": 223,
+      "graph_id": 1523,
+      "motif_type": "feedback_loop",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_1523.pkl"
+    },
+    {
+      "split_idx": 224,
+      "graph_id": 758,
+      "motif_type": "feedforward_loop",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_758.pkl"
+    },
+    {
+      "split_idx": 225,
+      "graph_id": 209,
+      "motif_type": "feedforward_loop",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_209.pkl"
+    },
+    {
+      "split_idx": 226,
+      "graph_id": 2730,
+      "motif_type": "single_input_module",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_2730.pkl"
+    },
+    {
+      "split_idx": 227,
+      "graph_id": 2337,
+      "motif_type": "single_input_module",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_2337.pkl"
+    },
+    {
+      "split_idx": 228,
+      "graph_id": 503,
+      "motif_type": "feedforward_loop",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_503.pkl"
+    },
+    {
+      "split_idx": 229,
+      "graph_id": 2522,
+      "motif_type": "single_input_module",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_2522.pkl"
+    },
+    {
+      "split_idx": 230,
+      "graph_id": 398,
+      "motif_type": "feedforward_loop",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_398.pkl"
+    },
+    {
+      "split_idx": 231,
+      "graph_id": 756,
+      "motif_type": "feedforward_loop",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_756.pkl"
+    },
+    {
+      "split_idx": 232,
+      "graph_id": 1291,
+      "motif_type": "feedback_loop",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_1291.pkl"
+    },
+    {
+      "split_idx": 233,
+      "graph_id": 1998,
+      "motif_type": "feedback_loop",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_1998.pkl"
+    },
+    {
+      "split_idx": 234,
+      "graph_id": 2799,
+      "motif_type": "single_input_module",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_2799.pkl"
+    },
+    {
+      "split_idx": 235,
+      "graph_id": 37,
+      "motif_type": "feedforward_loop",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_37.pkl"
+    },
+    {
+      "split_idx": 236,
+      "graph_id": 748,
+      "motif_type": "feedforward_loop",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_748.pkl"
+    },
+    {
+      "split_idx": 237,
+      "graph_id": 606,
+      "motif_type": "feedforward_loop",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_606.pkl"
+    },
+    {
+      "split_idx": 238,
+      "graph_id": 1514,
+      "motif_type": "feedback_loop",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_1514.pkl"
+    },
+    {
+      "split_idx": 239,
+      "graph_id": 2098,
+      "motif_type": "single_input_module",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_2098.pkl"
+    },
+    {
+      "split_idx": 240,
+      "graph_id": 3551,
+      "motif_type": "cascade",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_3551.pkl"
+    },
+    {
+      "split_idx": 241,
+      "graph_id": 1744,
+      "motif_type": "feedback_loop",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_1744.pkl"
+    },
+    {
+      "split_idx": 242,
+      "graph_id": 430,
+      "motif_type": "feedforward_loop",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_430.pkl"
+    },
+    {
+      "split_idx": 243,
+      "graph_id": 1011,
+      "motif_type": "feedback_loop",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_1011.pkl"
+    },
+    {
+      "split_idx": 244,
+      "graph_id": 182,
+      "motif_type": "feedforward_loop",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_182.pkl"
+    },
+    {
+      "split_idx": 245,
+      "graph_id": 157,
+      "motif_type": "feedforward_loop",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_157.pkl"
+    },
+    {
+      "split_idx": 246,
+      "graph_id": 445,
+      "motif_type": "feedforward_loop",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_445.pkl"
+    },
+    {
+      "split_idx": 247,
+      "graph_id": 1348,
+      "motif_type": "feedback_loop",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_1348.pkl"
+    },
+    {
+      "split_idx": 248,
+      "graph_id": 3987,
+      "motif_type": "cascade",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_3987.pkl"
+    },
+    {
+      "split_idx": 249,
+      "graph_id": 640,
+      "motif_type": "feedforward_loop",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_640.pkl"
+    },
+    {
+      "split_idx": 250,
+      "graph_id": 127,
+      "motif_type": "feedforward_loop",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_127.pkl"
+    },
+    {
+      "split_idx": 251,
+      "graph_id": 3952,
+      "motif_type": "cascade",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_3952.pkl"
+    },
+    {
+      "split_idx": 252,
+      "graph_id": 1927,
+      "motif_type": "feedback_loop",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_1927.pkl"
+    },
+    {
+      "split_idx": 253,
+      "graph_id": 2503,
+      "motif_type": "single_input_module",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_2503.pkl"
+    },
+    {
+      "split_idx": 254,
+      "graph_id": 1616,
+      "motif_type": "feedback_loop",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_1616.pkl"
+    },
+    {
+      "split_idx": 255,
+      "graph_id": 2371,
+      "motif_type": "single_input_module",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_2371.pkl"
+    },
+    {
+      "split_idx": 256,
+      "graph_id": 579,
+      "motif_type": "feedforward_loop",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_579.pkl"
+    },
+    {
+      "split_idx": 257,
+      "graph_id": 1566,
+      "motif_type": "feedback_loop",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_1566.pkl"
+    },
+    {
+      "split_idx": 258,
+      "graph_id": 3978,
+      "motif_type": "cascade",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_3978.pkl"
+    },
+    {
+      "split_idx": 259,
+      "graph_id": 3657,
+      "motif_type": "cascade",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_3657.pkl"
+    },
+    {
+      "split_idx": 260,
+      "graph_id": 2816,
+      "motif_type": "single_input_module",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_2816.pkl"
+    },
+    {
+      "split_idx": 261,
+      "graph_id": 1006,
+      "motif_type": "feedback_loop",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_1006.pkl"
+    },
+    {
+      "split_idx": 262,
+      "graph_id": 533,
+      "motif_type": "feedforward_loop",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_533.pkl"
+    },
+    {
+      "split_idx": 263,
+      "graph_id": 1609,
+      "motif_type": "feedback_loop",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_1609.pkl"
+    },
+    {
+      "split_idx": 264,
+      "graph_id": 2030,
+      "motif_type": "single_input_module",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_2030.pkl"
+    },
+    {
+      "split_idx": 265,
+      "graph_id": 2165,
+      "motif_type": "single_input_module",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_2165.pkl"
+    },
+    {
+      "split_idx": 266,
+      "graph_id": 2210,
+      "motif_type": "single_input_module",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_2210.pkl"
+    },
+    {
+      "split_idx": 267,
+      "graph_id": 3737,
+      "motif_type": "cascade",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_3737.pkl"
+    },
+    {
+      "split_idx": 268,
+      "graph_id": 1310,
+      "motif_type": "feedback_loop",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_1310.pkl"
+    },
+    {
+      "split_idx": 269,
+      "graph_id": 1633,
+      "motif_type": "feedback_loop",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_1633.pkl"
+    },
+    {
+      "split_idx": 270,
+      "graph_id": 2734,
+      "motif_type": "single_input_module",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_2734.pkl"
+    },
+    {
+      "split_idx": 271,
+      "graph_id": 3180,
+      "motif_type": "cascade",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_3180.pkl"
+    },
+    {
+      "split_idx": 272,
+      "graph_id": 874,
+      "motif_type": "feedforward_loop",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_874.pkl"
+    },
+    {
+      "split_idx": 273,
+      "graph_id": 3142,
+      "motif_type": "cascade",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_3142.pkl"
+    },
+    {
+      "split_idx": 274,
+      "graph_id": 1832,
+      "motif_type": "feedback_loop",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_1832.pkl"
+    },
+    {
+      "split_idx": 275,
+      "graph_id": 2407,
+      "motif_type": "single_input_module",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_2407.pkl"
+    },
+    {
+      "split_idx": 276,
+      "graph_id": 2532,
+      "motif_type": "single_input_module",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_2532.pkl"
+    },
+    {
+      "split_idx": 277,
+      "graph_id": 1387,
+      "motif_type": "feedback_loop",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_1387.pkl"
+    },
+    {
+      "split_idx": 278,
+      "graph_id": 3276,
+      "motif_type": "cascade",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_3276.pkl"
+    },
+    {
+      "split_idx": 279,
+      "graph_id": 2828,
+      "motif_type": "single_input_module",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_2828.pkl"
+    },
+    {
+      "split_idx": 280,
+      "graph_id": 1839,
+      "motif_type": "feedback_loop",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_1839.pkl"
+    },
+    {
+      "split_idx": 281,
+      "graph_id": 2394,
+      "motif_type": "single_input_module",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_2394.pkl"
+    },
+    {
+      "split_idx": 282,
+      "graph_id": 2326,
+      "motif_type": "single_input_module",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_2326.pkl"
+    },
+    {
+      "split_idx": 283,
+      "graph_id": 1311,
+      "motif_type": "feedback_loop",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_1311.pkl"
+    },
+    {
+      "split_idx": 284,
+      "graph_id": 2084,
+      "motif_type": "single_input_module",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_2084.pkl"
+    },
+    {
+      "split_idx": 285,
+      "graph_id": 1029,
+      "motif_type": "feedback_loop",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_1029.pkl"
+    },
+    {
+      "split_idx": 286,
+      "graph_id": 3950,
+      "motif_type": "cascade",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_3950.pkl"
+    },
+    {
+      "split_idx": 287,
+      "graph_id": 2010,
+      "motif_type": "single_input_module",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_2010.pkl"
+    },
+    {
+      "split_idx": 288,
+      "graph_id": 3505,
+      "motif_type": "cascade",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_3505.pkl"
+    },
+    {
+      "split_idx": 289,
+      "graph_id": 379,
+      "motif_type": "feedforward_loop",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_379.pkl"
+    },
+    {
+      "split_idx": 290,
+      "graph_id": 3199,
+      "motif_type": "cascade",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_3199.pkl"
+    },
+    {
+      "split_idx": 291,
+      "graph_id": 2169,
+      "motif_type": "single_input_module",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_2169.pkl"
+    },
+    {
+      "split_idx": 292,
+      "graph_id": 1676,
+      "motif_type": "feedback_loop",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_1676.pkl"
+    },
+    {
+      "split_idx": 293,
+      "graph_id": 1661,
+      "motif_type": "feedback_loop",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_1661.pkl"
+    },
+    {
+      "split_idx": 294,
+      "graph_id": 1364,
+      "motif_type": "feedback_loop",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_1364.pkl"
+    },
+    {
+      "split_idx": 295,
+      "graph_id": 837,
+      "motif_type": "feedforward_loop",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_837.pkl"
+    },
+    {
+      "split_idx": 296,
+      "graph_id": 688,
+      "motif_type": "feedforward_loop",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_688.pkl"
+    },
+    {
+      "split_idx": 297,
+      "graph_id": 3483,
+      "motif_type": "cascade",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_3483.pkl"
+    },
+    {
+      "split_idx": 298,
+      "graph_id": 677,
+      "motif_type": "feedforward_loop",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_677.pkl"
+    },
+    {
+      "split_idx": 299,
+      "graph_id": 585,
+      "motif_type": "feedforward_loop",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_585.pkl"
+    },
+    {
+      "split_idx": 300,
+      "graph_id": 571,
+      "motif_type": "feedforward_loop",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_571.pkl"
+    },
+    {
+      "split_idx": 301,
+      "graph_id": 3239,
+      "motif_type": "cascade",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_3239.pkl"
+    },
+    {
+      "split_idx": 302,
+      "graph_id": 2493,
+      "motif_type": "single_input_module",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_2493.pkl"
+    },
+    {
+      "split_idx": 303,
+      "graph_id": 2025,
+      "motif_type": "single_input_module",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_2025.pkl"
+    },
+    {
+      "split_idx": 304,
+      "graph_id": 1515,
+      "motif_type": "feedback_loop",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_1515.pkl"
+    },
+    {
+      "split_idx": 305,
+      "graph_id": 3890,
+      "motif_type": "cascade",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_3890.pkl"
+    },
+    {
+      "split_idx": 306,
+      "graph_id": 2651,
+      "motif_type": "single_input_module",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_2651.pkl"
+    },
+    {
+      "split_idx": 307,
+      "graph_id": 461,
+      "motif_type": "feedforward_loop",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_461.pkl"
+    },
+    {
+      "split_idx": 308,
+      "graph_id": 1375,
+      "motif_type": "feedback_loop",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_1375.pkl"
+    },
+    {
+      "split_idx": 309,
+      "graph_id": 339,
+      "motif_type": "feedforward_loop",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_339.pkl"
+    },
+    {
+      "split_idx": 310,
+      "graph_id": 1881,
+      "motif_type": "feedback_loop",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_1881.pkl"
+    },
+    {
+      "split_idx": 311,
+      "graph_id": 3006,
+      "motif_type": "cascade",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_3006.pkl"
+    },
+    {
+      "split_idx": 312,
+      "graph_id": 1153,
+      "motif_type": "feedback_loop",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_1153.pkl"
+    },
+    {
+      "split_idx": 313,
+      "graph_id": 177,
+      "motif_type": "feedforward_loop",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_177.pkl"
+    },
+    {
+      "split_idx": 314,
+      "graph_id": 2437,
+      "motif_type": "single_input_module",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_2437.pkl"
+    },
+    {
+      "split_idx": 315,
+      "graph_id": 2262,
+      "motif_type": "single_input_module",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_2262.pkl"
+    },
+    {
+      "split_idx": 316,
+      "graph_id": 1482,
+      "motif_type": "feedback_loop",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_1482.pkl"
+    },
+    {
+      "split_idx": 317,
+      "graph_id": 2546,
+      "motif_type": "single_input_module",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_2546.pkl"
+    },
+    {
+      "split_idx": 318,
+      "graph_id": 2994,
+      "motif_type": "single_input_module",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_2994.pkl"
+    },
+    {
+      "split_idx": 319,
+      "graph_id": 1353,
+      "motif_type": "feedback_loop",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_1353.pkl"
+    },
+    {
+      "split_idx": 320,
+      "graph_id": 2664,
+      "motif_type": "single_input_module",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_2664.pkl"
+    },
+    {
+      "split_idx": 321,
+      "graph_id": 3513,
+      "motif_type": "cascade",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_3513.pkl"
+    },
+    {
+      "split_idx": 322,
+      "graph_id": 3304,
+      "motif_type": "cascade",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_3304.pkl"
+    },
+    {
+      "split_idx": 323,
+      "graph_id": 1089,
+      "motif_type": "feedback_loop",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_1089.pkl"
+    },
+    {
+      "split_idx": 324,
+      "graph_id": 412,
+      "motif_type": "feedforward_loop",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_412.pkl"
+    },
+    {
+      "split_idx": 325,
+      "graph_id": 2545,
+      "motif_type": "single_input_module",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_2545.pkl"
+    },
+    {
+      "split_idx": 326,
+      "graph_id": 2097,
+      "motif_type": "single_input_module",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_2097.pkl"
+    },
+    {
+      "split_idx": 327,
+      "graph_id": 426,
+      "motif_type": "feedforward_loop",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_426.pkl"
+    },
+    {
+      "split_idx": 328,
+      "graph_id": 1268,
+      "motif_type": "feedback_loop",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_1268.pkl"
+    },
+    {
+      "split_idx": 329,
+      "graph_id": 636,
+      "motif_type": "feedforward_loop",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_636.pkl"
+    },
+    {
+      "split_idx": 330,
+      "graph_id": 2410,
+      "motif_type": "single_input_module",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_2410.pkl"
+    },
+    {
+      "split_idx": 331,
+      "graph_id": 1236,
+      "motif_type": "feedback_loop",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_1236.pkl"
+    },
+    {
+      "split_idx": 332,
+      "graph_id": 638,
+      "motif_type": "feedforward_loop",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_638.pkl"
+    },
+    {
+      "split_idx": 333,
+      "graph_id": 957,
+      "motif_type": "feedforward_loop",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_957.pkl"
+    },
+    {
+      "split_idx": 334,
+      "graph_id": 992,
+      "motif_type": "feedforward_loop",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_992.pkl"
+    },
+    {
+      "split_idx": 335,
+      "graph_id": 2572,
+      "motif_type": "single_input_module",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_2572.pkl"
+    },
+    {
+      "split_idx": 336,
+      "graph_id": 268,
+      "motif_type": "feedforward_loop",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_268.pkl"
+    },
+    {
+      "split_idx": 337,
+      "graph_id": 3653,
+      "motif_type": "cascade",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_3653.pkl"
+    },
+    {
+      "split_idx": 338,
+      "graph_id": 3974,
+      "motif_type": "cascade",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_3974.pkl"
+    },
+    {
+      "split_idx": 339,
+      "graph_id": 2635,
+      "motif_type": "single_input_module",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_2635.pkl"
+    },
+    {
+      "split_idx": 340,
+      "graph_id": 3868,
+      "motif_type": "cascade",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_3868.pkl"
+    },
+    {
+      "split_idx": 341,
+      "graph_id": 3674,
+      "motif_type": "cascade",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_3674.pkl"
+    },
+    {
+      "split_idx": 342,
+      "graph_id": 3541,
+      "motif_type": "cascade",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_3541.pkl"
+    },
+    {
+      "split_idx": 343,
+      "graph_id": 728,
+      "motif_type": "feedforward_loop",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_728.pkl"
+    },
+    {
+      "split_idx": 344,
+      "graph_id": 1461,
+      "motif_type": "feedback_loop",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_1461.pkl"
+    },
+    {
+      "split_idx": 345,
+      "graph_id": 3032,
+      "motif_type": "cascade",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_3032.pkl"
+    },
+    {
+      "split_idx": 346,
+      "graph_id": 1817,
+      "motif_type": "feedback_loop",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_1817.pkl"
+    },
+    {
+      "split_idx": 347,
+      "graph_id": 421,
+      "motif_type": "feedforward_loop",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_421.pkl"
+    },
+    {
+      "split_idx": 348,
+      "graph_id": 3994,
+      "motif_type": "cascade",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_3994.pkl"
+    },
+    {
+      "split_idx": 349,
+      "graph_id": 1061,
+      "motif_type": "feedback_loop",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_1061.pkl"
+    },
+    {
+      "split_idx": 350,
+      "graph_id": 3822,
+      "motif_type": "cascade",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_3822.pkl"
+    },
+    {
+      "split_idx": 351,
+      "graph_id": 3665,
+      "motif_type": "cascade",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_3665.pkl"
+    },
+    {
+      "split_idx": 352,
+      "graph_id": 2570,
+      "motif_type": "single_input_module",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_2570.pkl"
+    },
+    {
+      "split_idx": 353,
+      "graph_id": 786,
+      "motif_type": "feedforward_loop",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_786.pkl"
+    },
+    {
+      "split_idx": 354,
+      "graph_id": 3209,
+      "motif_type": "cascade",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_3209.pkl"
+    },
+    {
+      "split_idx": 355,
+      "graph_id": 2110,
+      "motif_type": "single_input_module",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_2110.pkl"
+    },
+    {
+      "split_idx": 356,
+      "graph_id": 3879,
+      "motif_type": "cascade",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_3879.pkl"
+    },
+    {
+      "split_idx": 357,
+      "graph_id": 2056,
+      "motif_type": "single_input_module",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_2056.pkl"
+    },
+    {
+      "split_idx": 358,
+      "graph_id": 506,
+      "motif_type": "feedforward_loop",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_506.pkl"
+    },
+    {
+      "split_idx": 359,
+      "graph_id": 2669,
+      "motif_type": "single_input_module",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_2669.pkl"
+    },
+    {
+      "split_idx": 360,
+      "graph_id": 1942,
+      "motif_type": "feedback_loop",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_1942.pkl"
+    },
+    {
+      "split_idx": 361,
+      "graph_id": 1695,
+      "motif_type": "feedback_loop",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_1695.pkl"
+    },
+    {
+      "split_idx": 362,
+      "graph_id": 3679,
+      "motif_type": "cascade",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_3679.pkl"
+    },
+    {
+      "split_idx": 363,
+      "graph_id": 2109,
+      "motif_type": "single_input_module",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_2109.pkl"
+    },
+    {
+      "split_idx": 364,
+      "graph_id": 2918,
+      "motif_type": "single_input_module",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_2918.pkl"
+    },
+    {
+      "split_idx": 365,
+      "graph_id": 92,
+      "motif_type": "feedforward_loop",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_92.pkl"
+    },
+    {
+      "split_idx": 366,
+      "graph_id": 1477,
+      "motif_type": "feedback_loop",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_1477.pkl"
+    },
+    {
+      "split_idx": 367,
+      "graph_id": 1859,
+      "motif_type": "feedback_loop",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_1859.pkl"
+    },
+    {
+      "split_idx": 368,
+      "graph_id": 858,
+      "motif_type": "feedforward_loop",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_858.pkl"
+    },
+    {
+      "split_idx": 369,
+      "graph_id": 2682,
+      "motif_type": "single_input_module",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_2682.pkl"
+    },
+    {
+      "split_idx": 370,
+      "graph_id": 3629,
+      "motif_type": "cascade",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_3629.pkl"
+    },
+    {
+      "split_idx": 371,
+      "graph_id": 1615,
+      "motif_type": "feedback_loop",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_1615.pkl"
+    },
+    {
+      "split_idx": 372,
+      "graph_id": 2066,
+      "motif_type": "single_input_module",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_2066.pkl"
+    },
+    {
+      "split_idx": 373,
+      "graph_id": 3597,
+      "motif_type": "cascade",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_3597.pkl"
+    },
+    {
+      "split_idx": 374,
+      "graph_id": 3345,
+      "motif_type": "cascade",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_3345.pkl"
+    },
+    {
+      "split_idx": 375,
+      "graph_id": 3438,
+      "motif_type": "cascade",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_3438.pkl"
+    },
+    {
+      "split_idx": 376,
+      "graph_id": 1424,
+      "motif_type": "feedback_loop",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_1424.pkl"
+    },
+    {
+      "split_idx": 377,
+      "graph_id": 145,
+      "motif_type": "feedforward_loop",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_145.pkl"
+    },
+    {
+      "split_idx": 378,
+      "graph_id": 2630,
+      "motif_type": "single_input_module",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_2630.pkl"
+    },
+    {
+      "split_idx": 379,
+      "graph_id": 669,
+      "motif_type": "feedforward_loop",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_669.pkl"
+    },
+    {
+      "split_idx": 380,
+      "graph_id": 3350,
+      "motif_type": "cascade",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_3350.pkl"
+    },
+    {
+      "split_idx": 381,
+      "graph_id": 3184,
+      "motif_type": "cascade",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_3184.pkl"
+    },
+    {
+      "split_idx": 382,
+      "graph_id": 1940,
+      "motif_type": "feedback_loop",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_1940.pkl"
+    },
+    {
+      "split_idx": 383,
+      "graph_id": 745,
+      "motif_type": "feedforward_loop",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_745.pkl"
+    },
+    {
+      "split_idx": 384,
+      "graph_id": 1670,
+      "motif_type": "feedback_loop",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_1670.pkl"
+    },
+    {
+      "split_idx": 385,
+      "graph_id": 2234,
+      "motif_type": "single_input_module",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_2234.pkl"
+    },
+    {
+      "split_idx": 386,
+      "graph_id": 1071,
+      "motif_type": "feedback_loop",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_1071.pkl"
+    },
+    {
+      "split_idx": 387,
+      "graph_id": 3534,
+      "motif_type": "cascade",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_3534.pkl"
+    },
+    {
+      "split_idx": 388,
+      "graph_id": 2954,
+      "motif_type": "single_input_module",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_2954.pkl"
+    },
+    {
+      "split_idx": 389,
+      "graph_id": 431,
+      "motif_type": "feedforward_loop",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_431.pkl"
+    },
+    {
+      "split_idx": 390,
+      "graph_id": 3305,
+      "motif_type": "cascade",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_3305.pkl"
+    },
+    {
+      "split_idx": 391,
+      "graph_id": 3412,
+      "motif_type": "cascade",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_3412.pkl"
+    },
+    {
+      "split_idx": 392,
+      "graph_id": 2362,
+      "motif_type": "single_input_module",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_2362.pkl"
+    },
+    {
+      "split_idx": 393,
+      "graph_id": 199,
+      "motif_type": "feedforward_loop",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_199.pkl"
+    },
+    {
+      "split_idx": 394,
+      "graph_id": 3685,
+      "motif_type": "cascade",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_3685.pkl"
+    },
+    {
+      "split_idx": 395,
+      "graph_id": 96,
+      "motif_type": "feedforward_loop",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_96.pkl"
+    },
+    {
+      "split_idx": 396,
+      "graph_id": 1355,
+      "motif_type": "feedback_loop",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_1355.pkl"
+    },
+    {
+      "split_idx": 397,
+      "graph_id": 1685,
+      "motif_type": "feedback_loop",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_1685.pkl"
+    },
+    {
+      "split_idx": 398,
+      "graph_id": 2378,
+      "motif_type": "single_input_module",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_2378.pkl"
+    },
+    {
+      "split_idx": 399,
+      "graph_id": 675,
+      "motif_type": "feedforward_loop",
+      "graph_path": "virtual_graphs/data/all_graphs/raw_graphs/graph_675.pkl"
+    }
+  ]
+}

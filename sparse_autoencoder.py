@@ -457,8 +457,8 @@ def main():
     SEED = 42
     DEVICE = 'cuda' if torch.cuda.is_available() else 'cpu'
     BATCH_SIZE = 1024
-    NUM_EPOCHS = 100
-    LEARNING_RATE = 1e-3
+    NUM_EPOCHS = 200  # Increased from 100
+    LEARNING_RATE = 5e-4
 
     INPUT_DIM = 64
 

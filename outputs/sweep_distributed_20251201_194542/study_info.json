@@ -1,0 +1,10 @@
+{
+  "best_value": 0.0044726726482622325,
+  "best_trial": 11,
+  "best_gpu": 1,
+  "n_trials": 20,
+  "n_complete_trials": 20,
+  "n_failed_trials": 0,
+  "total_time": 28247.06852197647,
+  "avg_time_per_trial": 1412.3534260988235
+}
