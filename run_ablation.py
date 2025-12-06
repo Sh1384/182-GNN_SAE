@@ -8,14 +8,15 @@ Compares the distribution of GNN errors (MSE) across test graphs in three scenar
 3. Ablated: GNN inference using SAE reconstruction with specific features zeroed out.
 
 The "Error" is measured as MSE between GNN predictions and GROUND TRUTH expression values
-on the masked nodes (same evaluation as during training).
+on the masked nodes.
+
+Feature:
+- Lines are colored by the dominant motif in the graph.
+- Line thickness is proportional to the deviation in MSE (thicker = bigger change).
+- Legend included at the top.
 
 Usage:
-    # Single feature
     python run_ablation.py --latent_dim 512 --k 16 --feature z496
-
-    # Multiple features
-    python run_ablation.py --latent_dim 512 --k 16 --feature z496,z200,z123
 """
 
 import argparse
@@ -24,10 +25,11 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
+import matplotlib.patches as mpatches
+from matplotlib.collections import LineCollection
 import seaborn as sns
 from tqdm import tqdm
 import torch
-import torch.nn as nn
 import pickle
 import networkx as nx
 from scipy import stats
@@ -38,7 +40,6 @@ from sparse_autoencoder import SparseAutoencoder
 try:
     from gnn_train import GCNModel
 except ImportError:
-    # Placeholder if file missing in local context
     pass
 
 # Setup Directories
@@ -48,7 +49,7 @@ ABLATION_DIR.mkdir(exist_ok=True)
 (ABLATION_DIR / "plots").mkdir(exist_ok=True)
 
 # -----------------------------------------------------------------------------
-# Model Loading
+# Model Loading & Helpers
 # -----------------------------------------------------------------------------
 
 def load_sae_model(latent_dim, k):
@@ -80,10 +81,6 @@ def load_gnn_model():
         print(f"Warning: Could not load GNN model: {e}")
         return None
 
-# -----------------------------------------------------------------------------
-# Helpers
-# -----------------------------------------------------------------------------
-
 def get_feature_indices(feature_spec, latent_dim):
     features = []
     for feat in feature_spec.split(','):
@@ -94,48 +91,62 @@ def get_feature_indices(feature_spec, latent_dim):
             except: pass
     return features
 
-def simulate_expression(W, graph_id, steps=50, gamma=0.3, noise_std=0.01):
-    """
-    Simulate gene expression dynamics (same as training).
-    Uses consistent seed per graph_id to match training data.
-    """
-    # Use same seed as training: base_seed(42) + graph_id
-    local_seed = 42 + graph_id  # TEST dataset uses seed=44, but we need consistency
-    rng = np.random.default_rng(local_seed)
+def load_graph_motif_metadata(graph_id):
+    """Load motif metadata for a specific graph."""
+    metadata_path = Path(f"virtual_graphs/data/all_graphs/graph_motif_metadata/graph_{graph_id}_metadata.csv")
+    if not metadata_path.exists():
+        return {}
 
+    df = pd.read_csv(metadata_path, index_col=0)
+    # Count nodes in each motif
+    motif_counts = df.sum(axis=0).to_dict()
+    return motif_counts
+
+def get_dominant_motif(graph_id):
+    """Determine the majority motif for a graph."""
+    counts = load_graph_motif_metadata(graph_id)
+    
+    # Map raw column names to display names
+    name_map = {
+        'feedforward_loop': 'Feedforward Loop',
+        'feedback_loop': 'Feedback Loop',
+        'single_input_module': 'Single Input Module',
+        'cascade': 'Cascade'
+    }
+    
+    # Filter for known motifs and non-zero counts
+    valid_counts = {name_map.get(k, k): v for k, v in counts.items() if v > 0 and k in name_map}
+    
+    if not valid_counts:
+        return "Other"
+    
+    # Return motif with max count
+    return max(valid_counts, key=valid_counts.get)
+
+def simulate_expression(W, graph_id, steps=50, gamma=0.3, noise_std=0.01):
+    local_seed = 42 + graph_id
+    rng = np.random.default_rng(local_seed)
     n_nodes = W.shape[0]
     x = rng.uniform(0, 1, size=n_nodes)
-
     for _ in range(steps):
         weighted_input = W @ x
         sigmoid_input = 1.0 / (1.0 + np.exp(-np.clip(weighted_input, -10, 10)))
         noise = rng.normal(0, noise_std, size=n_nodes)
         x = (1 - gamma) * x + gamma * sigmoid_input + noise
         x = np.clip(x, 0, 1)
-
     return x
 
 def load_graph_data(graph_id):
-    """Load graph structure and generate ground truth expression."""
     path = Path(f"virtual_graphs/data/all_graphs/raw_graphs/graph_{graph_id}.pkl")
     if not path.exists(): return None
-
     with open(path, 'rb') as f:
         G = pickle.load(f)
-
     W = nx.to_numpy_array(G, weight='weight')
     edge_index = torch.tensor(np.array(np.nonzero(W)), dtype=torch.long)
     edge_weight = torch.tensor(W[W != 0], dtype=torch.float32)
-
-    # Generate ground truth expression (same as training)
-    y_true = simulate_expression(W, graph_id)
-    y_true = torch.tensor(y_true, dtype=torch.float32)
-
-    # Generate mask (same as training: 30% masked, consistent per graph)
-    mask_prob = 0.3
+    y_true = torch.tensor(simulate_expression(W, graph_id), dtype=torch.float32)
     rng = np.random.default_rng(42 + graph_id)
-    mask = torch.tensor(rng.random(len(G.nodes())) < mask_prob, dtype=torch.bool)
-
+    mask = torch.tensor(rng.random(len(G.nodes())) < 0.3, dtype=torch.bool)
     return edge_index, edge_weight, y_true, mask
 
 def evaluate_gnn_output(gnn_model, layer2_activations, edge_index, edge_weight):
@@ -146,238 +157,255 @@ def evaluate_gnn_output(gnn_model, layer2_activations, edge_index, edge_weight):
     return pred
 
 # -----------------------------------------------------------------------------
-# Main Analysis
+# Main Analysis Logic
 # -----------------------------------------------------------------------------
 
-def run_ablation_experiment(latent_dim, k, ablate_indices, experiment_name):
+def run_ablation_experiment(latent_dim, k, ablate_indices, experiment_name, motif_type_filter=None):
     print(f"Running Ablation: {experiment_name}")
-    
     sae_model = load_sae_model(latent_dim, k)
     gnn_model = load_gnn_model()
-    
-    # Use TEST set
+
     with open('outputs/test_graph_ids.json', 'r') as f:
         graph_ids = json.load(f)['graph_ids']
 
     results = []
-
     print(f"Processing {len(graph_ids)} graphs...")
+    
     for graph_id in tqdm(graph_ids):
-        # 1. Load Original Activations
+        # 1. Determine Motif
+        motif_label = get_dominant_motif(graph_id)
+        
+        # Apply optional filter
+        if motif_type_filter and motif_type_filter.lower() != 'all':
+            # Simple check if filter string is part of label
+            if motif_type_filter.lower() not in motif_label.lower().replace(" ", "_"):
+                continue
+
+        # 2. Load Data
         act_file = Path(f"outputs/activations/layer2/test/graph_{graph_id}.pt")
         if not act_file.exists(): continue
         original_acts = torch.load(act_file, weights_only=True)
 
-        # 2. Get SAE Reconstructions
+        # 3. SAE Reconstructions
         with torch.no_grad():
-            # A. Full Reconstruction (Unablated)
             latents_full = sae_model.encode(original_acts)
             reconstructed_full = sae_model.decoder(latents_full)
             
-            # B. Ablated Reconstruction
             latents_ablated = latents_full.clone()
-            latents_ablated[:, ablate_indices] = 0.0 # Zero out feature
+            latents_ablated[:, ablate_indices] = 0.0
             reconstructed_ablated = sae_model.decoder(latents_ablated)
 
-        # 3. Load Ground Truth and Run GNN Inference
+        # 4. GNN Inference
         graph_data = load_graph_data(graph_id)
         if gnn_model and graph_data:
             edge_index, edge_weight, y_true, mask = graph_data
-
-            # 4. Run GNN layer3 with THREE different inputs
+            
             out_original = evaluate_gnn_output(gnn_model, original_acts, edge_index, edge_weight)
             out_full_sae = evaluate_gnn_output(gnn_model, reconstructed_full, edge_index, edge_weight)
             out_ablated = evaluate_gnn_output(gnn_model, reconstructed_ablated, edge_index, edge_weight)
 
-            if out_original is not None and out_full_sae is not None and out_ablated is not None:
-                # 5. Calculate all three losses vs ground truth on MASKED nodes only
+            if out_original is not None:
                 loss_original = torch.mean(((out_original - y_true)[mask]) ** 2).item()
                 loss_full_sae = torch.mean(((out_full_sae - y_true)[mask]) ** 2).item()
                 loss_ablated = torch.mean(((out_ablated - y_true)[mask]) ** 2).item()
 
-                # 6. Store all metrics
                 results.append({
                     'graph_id': graph_id,
+                    'Motif': motif_label,
                     'Loss (Original)': loss_original,
                     'Loss (Full SAE)': loss_full_sae,
                     'Loss (Ablated)': loss_ablated,
                     'SAE Degradation': loss_full_sae - loss_original,
-                    'Ablation Impact': loss_ablated - loss_full_sae,
-                    'Total Impact': loss_ablated - loss_original
+                    'Ablation Impact': loss_ablated - loss_full_sae
                 })
 
     return pd.DataFrame(results)
 
+# -----------------------------------------------------------------------------
+# Visualization
+# -----------------------------------------------------------------------------
+
 def plot_boxplots(df, experiment_name):
-    """Plot 3-way paired plot with connected lines showing per-graph trajectories."""
-    if df.empty: return
+    """
+    Plot 3-way paired plot colored by motif with top legend.
+    FIXED: Uses high zorder, thick black borders, and robust data handling to ensure visibility.
+    """
+    if df.empty:
+        print("Dataframe is empty. Skipping plot.")
+        return
 
-    # Remove extreme outliers using IQR method
-    def remove_outliers(df, columns, threshold=3.0):
-        """Remove rows where any column has values beyond threshold * IQR"""
-        df_clean = df.copy()
-        for col in columns:
-            Q1 = df_clean[col].quantile(0.25)
-            Q3 = df_clean[col].quantile(0.75)
-            IQR = Q3 - Q1
-            lower_bound = Q1 - threshold * IQR
-            upper_bound = Q3 + threshold * IQR
-            df_clean = df_clean[(df_clean[col] >= lower_bound) & (df_clean[col] <= upper_bound)]
-        return df_clean
+    # Define Color Palette (Colorblind friendly)
+    motif_palette = {
+        'Feedforward Loop': '#377eb8',      # Blue
+        'Feedback Loop': '#ff7f00',         # Orange
+        'Single Input Module': '#4daf4a',   # Green
+        'Cascade': '#e41a1c',               # Red
+        'Other': '#999999'                  # Grey
+    }
 
-    # Remove outliers
     loss_cols = ['Loss (Original)', 'Loss (Full SAE)', 'Loss (Ablated)']
-    df_clean = remove_outliers(df, loss_cols, threshold=2.5)
-    n_removed = len(df) - len(df_clean)
-    print(f"Removed {n_removed} outlier graphs ({n_removed/len(df)*100:.1f}%)")
+    
+    # 1. Validation & Cleaning
+    for col in loss_cols:
+        if col not in df.columns:
+            print(f"Error: Column '{col}' not found in dataframe.")
+            return
 
-    # Create figure
-    fig, ax = plt.subplots(figsize=(10, 6))
+    # Filter outliers
+    df_clean = df.copy()
+    threshold = 3.0
+    for col in loss_cols:
+        Q1 = df_clean[col].quantile(0.25)
+        Q3 = df_clean[col].quantile(0.75)
+        IQR = Q3 - Q1
+        if IQR > 0:
+            # Filter out points outside 3 IQR range
+            df_clean = df_clean[~((df_clean[col] < (Q1 - threshold * IQR)) | (df_clean[col] > (Q3 + threshold * IQR)))]
 
-    # Positions for the three conditions
+    # Drop rows with NaNs in the loss columns to ensure lines plot correctly
+    df_clean = df_clean.dropna(subset=loss_cols)
+    print(f"Plotting {len(df_clean)} graphs after cleaning...")
+
+    fig, ax = plt.subplots(figsize=(12, 8))
+
     positions = [0, 1, 2]
     x_labels = ['Original', 'Full SAE', 'Ablated']
 
-    # Draw boxplots (minimal, just for reference)
-    bp = ax.boxplot([df_clean['Loss (Original)'], df_clean['Loss (Full SAE)'], df_clean['Loss (Ablated)']],
+    # 2. Draw Connected Lines (Bottom Layer)
+    # zorder=2 ensures they are behind the points
+    segments = []
+    colors = []
+    linewidths = []
+    
+    for _, row in df_clean.iterrows():
+        motif = row.get('Motif', 'Other')
+        c = motif_palette.get(motif, '#999999')
+        
+        y_orig = row['Loss (Original)']
+        y_full = row['Loss (Full SAE)']
+        y_abl = row['Loss (Ablated)']
+        
+        # Calculate differences for line thickness
+        diff1 = abs(y_full - y_orig)
+        diff2 = abs(y_abl - y_full)
+        
+        segments.append([(0, y_orig), (1, y_full)])
+        colors.append(c)
+        linewidths.append(diff1)
+        
+        segments.append([(1, y_full), (2, y_abl)])
+        colors.append(c)
+        linewidths.append(diff2)
+
+    # Normalize linewidths: Ensure minimum thickness is visible (1.0)
+    lw_array = np.array(linewidths)
+    if len(lw_array) > 0:
+        max_diff = np.percentile(lw_array, 95)
+        if max_diff < 1e-9: max_diff = 1.0
+        # Scale: Min 1.0, Max 3.5
+        normalized_lws = 1.0 + 2.5 * np.clip(lw_array / max_diff, 0, 1)
+    else:
+        normalized_lws = np.ones(len(segments))
+
+    # alpha=0.4 gives good visibility for the paired lines
+    lc = LineCollection(segments, colors=colors, linewidths=normalized_lws, alpha=0.4, zorder=2)
+    ax.add_collection(lc)
+
+    # 3. Draw Scatter Points (Middle Layer)
+    # zorder=3 sits on top of lines
+    for i, col in enumerate(loss_cols):
+        point_colors = [motif_palette.get(m, '#999999') for m in df_clean['Motif']]
+        ax.scatter([positions[i]] * len(df_clean), df_clean[col], 
+                   c=point_colors, alpha=0.5, s=25, zorder=3, edgecolors='white', linewidth=0.3)
+
+    # 4. Draw Boxplots (Top Layer)
+    # zorder=10 forces this to the very front, guaranteeing visibility.
+    # facecolor=(0,0,0,0) or 'none' ensures the box is transparent.
+    # We use .dropna() on the series passed to boxplot for robustness.
+    plot_data = [df_clean[col].dropna() for col in loss_cols]
+    
+    bp = ax.boxplot(plot_data,
                      positions=positions,
                      widths=0.4,
                      patch_artist=True,
-                     boxprops=dict(facecolor='lightgray', alpha=0.3),
-                     medianprops=dict(color='black', linewidth=2),
-                     whiskerprops=dict(color='gray', linewidth=1),
-                     capprops=dict(color='gray', linewidth=1),
-                     showfliers=False)
+                     # Increased linewidth to 2.5 for clarity, guaranteed transparent fill
+                     boxprops=dict(facecolor=(0,0,0,0), edgecolor='black', linewidth=2.5), 
+                     whiskerprops=dict(color='black', linewidth=2),
+                     capprops=dict(color='black', linewidth=2),
+                     # Bold red median line
+                     medianprops=dict(color='red', linewidth=3), 
+                     showfliers=False,
+                     zorder=10) # <-- CRITICAL: High zorder for visibility
 
-    # Draw connected scatter points for each graph
-    for idx, row in df_clean.iterrows():
-        values = [row['Loss (Original)'], row['Loss (Full SAE)'], row['Loss (Ablated)']]
-        ax.plot(positions, values, 'o-', color='steelblue', alpha=0.15, linewidth=0.5, markersize=3)
+    # 5. Legend & Aesthetics
+    legend_handles = []
+    unique_motifs = df_clean['Motif'].unique() if 'Motif' in df_clean.columns else ['Other']
+    for motif, color in motif_palette.items():
+        if motif in unique_motifs:
+            patch = mpatches.Patch(color=color, label=motif)
+            legend_handles.append(patch)
 
-    # Add scatter points on top
-    for i, col in enumerate(loss_cols):
-        ax.scatter([positions[i]] * len(df_clean), df_clean[col],
-                   alpha=0.3, s=20, color='steelblue', zorder=3)
+    ax.legend(handles=legend_handles, 
+              loc='lower center', 
+              bbox_to_anchor=(0.5, 1.02), 
+              ncol=min(len(legend_handles), 5), 
+              frameon=False,
+              fontsize=11)
 
     ax.set_xticks(positions)
-    ax.set_xticklabels(x_labels)
-    ax.set_ylabel('GNN MSE (vs Ground Truth)', fontsize=12)
-    ax.set_title(f'3-Way Paired Ablation: {experiment_name}', fontsize=14, fontweight='bold')
-    ax.grid(axis='y', alpha=0.3)
+    ax.set_xticklabels(x_labels, fontsize=12, fontweight='bold')
+    ax.set_ylabel('GNN MSE Loss', fontsize=12)
+    ax.set_title(f'Feature Ablation Impact by Graph Motif\n({experiment_name})', fontsize=14, pad=40)
+    ax.grid(axis='y', alpha=0.3, linestyle='--')
 
     plt.tight_layout()
-    save_path = ABLATION_DIR / "plots" / f"{experiment_name}_boxplot.png"
-    plt.savefig(save_path, dpi=150, bbox_inches='tight')
+    
+    save_path = ABLATION_DIR / "plots" / f"{experiment_name}_colored_boxplot.png"
+    plt.savefig(save_path, dpi=200, bbox_inches='tight')
     plt.show()
     print(f"Plot saved to {save_path}")
 
-def plot_impact_decomposition(df, experiment_name):
-    """Show SAE degradation vs Ablation impact."""
-    if df.empty: return
-
-    fig, axes = plt.subplots(1, 2, figsize=(14, 6))
-
-    # Left: Distribution of impacts
-    df_impacts = df.melt(
-        id_vars=['graph_id'],
-        value_vars=['SAE Degradation', 'Ablation Impact'],
-        var_name='Impact Type',
-        value_name='Loss Increase'
-    )
-
-    sns.boxplot(ax=axes[0], data=df_impacts, x='Impact Type', y='Loss Increase')
-    axes[0].set_title('Impact Distribution')
-    axes[0].axhline(y=0, color='red', linestyle='--', alpha=0.5)
-
-    # Right: Scatter (SAE degradation vs Ablation impact)
-    axes[1].scatter(df['SAE Degradation'], df['Ablation Impact'], alpha=0.5)
-    axes[1].axhline(y=0, color='red', linestyle='--', alpha=0.5)
-    axes[1].axvline(x=0, color='red', linestyle='--', alpha=0.5)
-    axes[1].set_xlabel('SAE Degradation')
-    axes[1].set_ylabel('Ablation Impact')
-    axes[1].set_title('Per-Graph Impact')
-
-    # Add diagonal line (ablation impact = SAE degradation)
-    max_val = max(df['SAE Degradation'].max(), df['Ablation Impact'].max())
-    min_val = min(df['SAE Degradation'].min(), df['Ablation Impact'].min())
-    axes[1].plot([min_val, max_val], [min_val, max_val], 'k--', alpha=0.3, label='Equal Impact')
-    axes[1].legend()
-
-    plt.tight_layout()
-    save_path = ABLATION_DIR / "plots" / f"{experiment_name}_decomposition.png"
-    plt.savefig(save_path, dpi=150, bbox_inches='tight')
-    plt.show()
-    print(f"Decomposition plot saved to {save_path}")
+# -----------------------------------------------------------------------------
+# Main Entry Point
+# -----------------------------------------------------------------------------
 
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--latent_dim', type=int, required=True)
     parser.add_argument('--k', type=int, required=True)
-    parser.add_argument('--feature', type=str, required=True, help='e.g. z496 or z496,z200,z123')
+    parser.add_argument('--feature', type=str, required=True, help='e.g. z496 or z496,z200')
+    parser.add_argument('--motif_type', type=str, default='all', help='Optional filter')
     args = parser.parse_args()
 
     ablate_indices = get_feature_indices(args.feature, args.latent_dim)
+    
+    # Name experiment
+    feat_str = "multi" if "," in args.feature else args.feature
+    experiment_name = f"ablate_{feat_str}"
 
-    # Create experiment name based on number of features
-    feature_list = [f.strip() for f in args.feature.split(',') if f.strip()]
-    if len(feature_list) == 1:
-        experiment_name = f"ablate_{feature_list[0]}"
-    else:
-        experiment_name = f"ablate_{len(feature_list)}features"
+    print(f"Ablating indices: {ablate_indices}")
 
-    print(f"Ablating {len(ablate_indices)} feature(s): {ablate_indices}")
+    # Run Analysis
+    df = run_ablation_experiment(args.latent_dim, args.k, ablate_indices, experiment_name, args.motif_type)
 
-    df = run_ablation_experiment(args.latent_dim, args.k, ablate_indices, experiment_name)
+    # Calculate Stats
+    print("\n" + "="*60)
+    print("RESULTS SUMMARY")
+    print("="*60)
+    
+    # Overall Impact
+    mean_imp = df['Ablation Impact'].mean()
+    p_val = stats.wilcoxon(df['Loss (Full SAE)'], df['Loss (Ablated)'])[1]
+    
+    print(f"Mean Ablation Impact: {mean_imp:.2e} (p={p_val:.2e})")
+    
+    # Breakdown by Motif
+    print("\nImpact by Motif Type:")
+    motif_stats = df.groupby('Motif')['Ablation Impact'].agg(['count', 'mean', 'std'])
+    print(motif_stats)
 
-    # Save results
-    results_path = ABLATION_DIR / "results" / f"{experiment_name}_results.csv"
-    df.to_csv(results_path, index=False)
-    print(f"Results saved to {results_path}")
-
-    # Print summary
-    print(f"\n{'='*70}")
-    print(f"3-WAY ABLATION SUMMARY: {experiment_name}")
-    print(f"{'='*70}")
-    print(f"Graphs analyzed: {len(df)}")
-
-    mean_orig = df['Loss (Original)'].mean()
-    mean_full = df['Loss (Full SAE)'].mean()
-    mean_ablated = df['Loss (Ablated)'].mean()
-    std_orig = df['Loss (Original)'].std()
-    std_full = df['Loss (Full SAE)'].std()
-    std_ablated = df['Loss (Ablated)'].std()
-
-    sae_deg = mean_full - mean_orig
-    ablation_imp = mean_ablated - mean_full
-    total_imp = mean_ablated - mean_orig
-
-    print(f"\nMean Losses (±std):")
-    print(f"  Original (No SAE):     {mean_orig:.6f} ± {std_orig:.6f}")
-    print(f"  Full SAE:              {mean_full:.6f} ± {std_full:.6f}")
-    print(f"  Ablated SAE:           {mean_ablated:.6f} ± {std_ablated:.6f}")
-
-    print(f"\nMean Impact Breakdown:")
-    print(f"  SAE Degradation:       {sae_deg:.6f}")
-    print(f"  Ablation Impact:       {ablation_imp:.6f}")
-    print(f"  Total Impact:          {total_imp:.6f}")
-
-    if abs(sae_deg) > 1e-10:
-        rel_importance = ablation_imp / sae_deg
-        print(f"  Relative Importance:   {rel_importance:.2%} of SAE degradation")
-
-    # Statistical significance tests (Wilcoxon signed-rank)
-    _, pval_sae = stats.wilcoxon(df['Loss (Original)'], df['Loss (Full SAE)'])
-    _, pval_ablation = stats.wilcoxon(df['Loss (Full SAE)'], df['Loss (Ablated)'])
-    _, pval_total = stats.wilcoxon(df['Loss (Original)'], df['Loss (Ablated)'])
-
-    print(f"\nStatistical Significance (Wilcoxon signed-rank test):")
-    print(f"  Original vs Full SAE:  p = {pval_sae:.4e}")
-    print(f"  Full SAE vs Ablated:   p = {pval_ablation:.4e}")
-    print(f"  Original vs Ablated:   p = {pval_total:.4e}")
-    print(f"{'='*70}")
-
+    # Plot
     plot_boxplots(df, experiment_name)
-    plot_impact_decomposition(df, experiment_name)
 
 if __name__ == "__main__":
     main()
