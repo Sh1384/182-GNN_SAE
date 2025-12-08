@@ -375,18 +375,27 @@ def main():
     parser.add_argument('--k', type=int, required=True)
     parser.add_argument('--feature', type=str, required=True, help='e.g. z496 or z496,z200')
     parser.add_argument('--motif_type', type=str, default='all', help='Optional filter')
+    parser.add_argument('--experiment_name', type=str, default=None, help='Optional experiment name override')
     args = parser.parse_args()
 
     ablate_indices = get_feature_indices(args.feature, args.latent_dim)
-    
+
     # Name experiment
-    feat_str = "multi" if "," in args.feature else args.feature
-    experiment_name = f"ablate_{feat_str}"
+    if args.experiment_name:
+        experiment_name = args.experiment_name
+    else:
+        feat_str = "multi" if "," in args.feature else args.feature
+        experiment_name = f"ablate_{feat_str}"
 
     print(f"Ablating indices: {ablate_indices}")
 
     # Run Analysis
     df = run_ablation_experiment(args.latent_dim, args.k, ablate_indices, experiment_name, args.motif_type)
+
+    # Save results to CSV
+    results_file = ABLATION_DIR / "results" / f"{experiment_name}_results.csv"
+    df.to_csv(results_file, index=False)
+    print(f"\nSaved results to: {results_file}")
 
     # Calculate Stats
     print("\n" + "="*60)
