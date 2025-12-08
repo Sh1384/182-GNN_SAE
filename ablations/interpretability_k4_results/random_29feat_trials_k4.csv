@@ -1,0 +1,81 @@
+trial,n_features,motif,mean_impact,median_impact,std_impact
+0,29,Cascade,0.0,0.0,0.0
+0,29,Feedforward Loop,7.292537978201201e-09,0.0,9.367434641874279e-08
+0,29,Single Input Module,0.0,0.0,0.0
+0,29,Feedback Loop,0.0,0.0,0.0
+1,29,Cascade,0.0,0.0,0.0
+1,29,Feedforward Loop,0.0,0.0,0.0
+1,29,Single Input Module,0.0,0.0,0.0
+1,29,Feedback Loop,0.0,0.0,0.0
+2,29,Cascade,1.3211646523231115e-08,0.0,1.429058069184459e-07
+2,29,Feedforward Loop,4.3038391705715294e-08,0.0,4.1609712071812984e-07
+2,29,Single Input Module,0.0,0.0,0.0
+2,29,Feedback Loop,2.6685973772635826e-08,0.0,2.2296690434041874e-07
+3,29,Cascade,0.0,0.0,0.0
+3,29,Feedforward Loop,7.292537978201201e-09,0.0,9.367434641874279e-08
+3,29,Single Input Module,0.0,0.0,0.0
+3,29,Feedback Loop,0.0,0.0,0.0
+4,29,Cascade,-6.545924096025972e-08,0.0,9.275632064271454e-07
+4,29,Feedforward Loop,0.0,0.0,0.0
+4,29,Single Input Module,0.0,0.0,0.0
+4,29,Feedback Loop,-2.262777902964893e-06,0.0,3.7664603487239264e-05
+5,29,Cascade,0.0,0.0,0.0
+5,29,Feedforward Loop,0.0,0.0,0.0
+5,29,Single Input Module,0.0,0.0,0.0
+5,29,Feedback Loop,0.0,0.0,0.0
+6,29,Cascade,0.0,0.0,0.0
+6,29,Feedforward Loop,0.0,0.0,0.0
+6,29,Single Input Module,0.0,0.0,0.0
+6,29,Feedback Loop,1.2471674171348031e-06,0.0,6.94837200519514e-06
+7,29,Cascade,1.7264491727209503e-07,0.0,1.9556489660821778e-06
+7,29,Feedforward Loop,-3.819342699981257e-06,0.0,4.2576358245169505e-05
+7,29,Single Input Module,0.0,0.0,0.0
+7,29,Feedback Loop,-2.4876409532639303e-06,0.0,1.766535228884831e-05
+8,29,Cascade,0.0,0.0,0.0
+8,29,Feedforward Loop,0.0,0.0,0.0
+8,29,Single Input Module,0.0,0.0,0.0
+8,29,Feedback Loop,0.0,0.0,0.0
+9,29,Cascade,0.0,0.0,0.0
+9,29,Feedforward Loop,0.0,0.0,0.0
+9,29,Single Input Module,0.0,0.0,0.0
+9,29,Feedback Loop,0.0,0.0,0.0
+10,29,Cascade,1.7264491727209503e-07,0.0,1.9556489660821778e-06
+10,29,Feedforward Loop,1.7980059827536795e-08,0.0,9.40212541198765e-07
+10,29,Single Input Module,0.0,0.0,0.0
+10,29,Feedback Loop,-1.1757074389606714e-06,0.0,6.9029992018475985e-06
+11,29,Cascade,0.0,0.0,0.0
+11,29,Feedforward Loop,8.557584475387227e-09,0.0,1.0992416289792296e-07
+11,29,Single Input Module,0.0,0.0,0.0
+11,29,Feedback Loop,-3.580431579253846e-06,0.0,3.651338097939838e-05
+12,29,Cascade,0.0,0.0,0.0
+12,29,Feedforward Loop,0.0,0.0,0.0
+12,29,Single Input Module,0.0,0.0,0.0
+12,29,Feedback Loop,0.0,0.0,0.0
+13,29,Cascade,0.0,0.0,0.0
+13,29,Feedforward Loop,0.0,0.0,0.0
+13,29,Single Input Module,0.0,0.0,0.0
+13,29,Feedback Loop,-1.3119335143033089e-06,0.0,1.329258830518192e-05
+14,29,Cascade,1.818666027651893e-08,0.0,1.9671880846929926e-07
+14,29,Feedforward Loop,0.0,0.0,0.0
+14,29,Single Input Module,0.0,0.0,0.0
+14,29,Feedback Loop,-5.929233828702798e-08,0.0,4.2550114825505245e-07
+15,29,Cascade,1.3211646523231115e-08,0.0,1.429058069184459e-07
+15,29,Feedforward Loop,4.3038391705715294e-08,0.0,4.1609712071812984e-07
+15,29,Single Input Module,0.0,0.0,0.0
+15,29,Feedback Loop,2.6685973772635826e-08,0.0,2.2296690434041874e-07
+16,29,Cascade,0.0,0.0,0.0
+16,29,Feedforward Loop,0.0,0.0,0.0
+16,29,Single Input Module,0.0,0.0,0.0
+16,29,Feedback Loop,0.0,0.0,0.0
+17,29,Cascade,0.0,0.0,0.0
+17,29,Feedforward Loop,-3.837322759808794e-06,0.0,4.256434481824876e-05
+17,29,Single Input Module,0.0,0.0,0.0
+17,29,Feedback Loop,0.0,0.0,0.0
+18,29,Cascade,0.0,0.0,0.0
+18,29,Feedforward Loop,0.0,0.0,0.0
+18,29,Single Input Module,0.0,0.0,0.0
+18,29,Feedback Loop,0.0,0.0,0.0
+19,29,Cascade,0.0,0.0,0.0
+19,29,Feedforward Loop,0.0,0.0,0.0
+19,29,Single Input Module,0.0,0.0,0.0
+19,29,Feedback Loop,5.603606741015728e-08,0.0,4.319844788766931e-07

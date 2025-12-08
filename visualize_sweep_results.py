@@ -34,20 +34,21 @@ def load_sweep_results(sweep_dir: str) -> Dict:
     # Load trials CSV
     trials_df = pd.read_csv(sweep_path / "trials.csv")
 
-    # Load best params
-    with open(sweep_path / "best_params.json", 'r') as f:
-        best_params = json.load(f)
+    # # Load best params
+    # with open(sweep_path / "best_params.json", 'r') as f:
+    #     best_params = json.load(f)
 
-    # Load study info
-    with open(sweep_path / "study_info.json", 'r') as f:
-        study_info = json.load(f)
+    # # Load study info
+    # with open(sweep_path / "study_info.json", 'r') as f:
+    #     study_info = json.load(f)
 
-    return {
-        'trials_df': trials_df,
-        'best_params': best_params,
-        'study_info': study_info,
-        'sweep_dir': sweep_path
-    }
+    # return {
+    #     'trials_df': trials_df,
+    #     'best_params': best_params,
+    #     'study_info': study_info,
+    #     'sweep_dir': sweep_path
+    # }
+    return trials_df
 
 
 def plot_optimization_history(trials_df: pd.DataFrame, save_path: Optional[Path] = None):
@@ -286,12 +287,14 @@ def generate_all_visualizations(sweep_dir: str, output_dir: Optional[str] = None
     """
     # Load results
     print("Loading sweep results...")
-    results = load_sweep_results(sweep_dir)
-    trials_df = results['trials_df']
+    # results = load_sweep_results(sweep_dir)
+    # trials_df = results['trials_df']
+    
+    trials_df = load_sweep_results(sweep_dir)
 
     # Create output directory
     if output_dir is None:
-        output_dir = results['sweep_dir'] / "visualizations"
+        output_dir = Path(sweep_dir) / "visualizations" / "GAT"
     else:
         output_dir = Path(output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -299,7 +302,7 @@ def generate_all_visualizations(sweep_dir: str, output_dir: Optional[str] = None
     print(f"Saving visualizations to: {output_dir}\n")
 
     # Print summary
-    print_summary(results)
+    # print_summary(results)
     print()
 
     # Generate plots
@@ -315,7 +318,7 @@ def generate_all_visualizations(sweep_dir: str, output_dir: Optional[str] = None
     print(f"✓ All visualizations saved to: {output_dir}")
     print()
 
-    return results
+    return None
 
 
 if __name__ == "__main__":
