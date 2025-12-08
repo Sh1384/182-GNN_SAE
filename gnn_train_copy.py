@@ -546,9 +546,9 @@ class GNNTrainer:
         self.model.eval()
 
         layer_dirs = {
-            1: Path(output_dir) / "activations" / "layer1" / split_name,
-            2: Path(output_dir) / "activations" / "layer2" / split_name,
-            3: Path(output_dir) / "activations" / "layer3" / split_name,
+            1: Path(output_dir) / "activations" / "layer1_new" / split_name,
+            2: Path(output_dir) / "activations" / "layer2_new" / split_name,
+            3: Path(output_dir) / "activations" / "layer3_new" / split_name,
         }
 
         if layer not in [1, 2, 3]:
@@ -884,7 +884,7 @@ def main(model_type: str = "GCN"):
     DEVICE = 'cuda' if torch.cuda.is_available() else 'cpu'
     BATCH_SIZE = 128  # From MISATO paper for QM graph tasks 
     NUM_EPOCHS = 100  # Standard epochs with early stopping (patience=25) to prevent overfitting
-    LEARNING_RATE = 0.017  # Standard learning rate for Adam optimizer with GNNs
+    LEARNING_RATE = 0.014  # Standard learning rate for Adam optimizer with GNNs
     MASK_PROB = 0.2  # Node masking probability for inductive learning task
                       # Selected to create moderate sparsity while maintaining sufficient signal
 
@@ -949,7 +949,7 @@ def main(model_type: str = "GCN"):
         print("  - Layer 1: 2 -> 16 x 4 heads = 64 dims")
         print("  - Layer 2: 64 -> 1 (single-head)")
     elif model_type_upper == "GCN":
-        model = GCNModel(input_dim=2, hidden_dim=248, output_dim=1, dropout=0.5)
+        model = GCNModel(input_dim=2, hidden_dim=88, output_dim=1, dropout=0.5)
         model_name = "gnn_model.pt"
         print("\nInitialized GCN model")
     else:
