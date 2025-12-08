@@ -2,67 +2,67 @@
   "train": {
     "cascade": {
       "num_graphs": 721,
-      "mean_masked_mse": 0.0034666872701379385,
-      "std_masked_mse": 0.003690927815832448
+      "mean_masked_mse": 0.0035086192010357854,
+      "std_masked_mse": 0.003711867014685959
     },
     "feedback_loop": {
       "num_graphs": 717,
-      "mean_masked_mse": 0.0029872860365904173,
-      "std_masked_mse": 0.0029117583255684316
+      "mean_masked_mse": 0.0027426052957695277,
+      "std_masked_mse": 0.0027936780717029985
     },
     "feedforward_loop": {
       "num_graphs": 683,
-      "mean_masked_mse": 0.005124164465082406,
-      "std_masked_mse": 0.006609485680033551
+      "mean_masked_mse": 0.005126244797129439,
+      "std_masked_mse": 0.006602179500362566
     },
     "single_input_module": {
       "num_graphs": 709,
-      "mean_masked_mse": 0.0031823876460175746,
-      "std_masked_mse": 0.007438078755324127
+      "mean_masked_mse": 0.0031785685862740108,
+      "std_masked_mse": 0.007446051622636107
     }
   },
   "val": {
     "cascade": {
       "num_graphs": 91,
-      "mean_masked_mse": 0.003797390204549079,
-      "std_masked_mse": 0.00389675607262682
+      "mean_masked_mse": 0.0038403358217832507,
+      "std_masked_mse": 0.003895886875490482
     },
     "feedback_loop": {
       "num_graphs": 93,
-      "mean_masked_mse": 0.0033846738946862534,
-      "std_masked_mse": 0.003340189952353429
+      "mean_masked_mse": 0.0030869138789128515,
+      "std_masked_mse": 0.003213948780483186
     },
     "feedforward_loop": {
       "num_graphs": 90,
-      "mean_masked_mse": 0.005871819199811057,
-      "std_masked_mse": 0.00901249615300113
+      "mean_masked_mse": 0.005881029659465437,
+      "std_masked_mse": 0.00894331428557668
     },
     "single_input_module": {
       "num_graphs": 92,
-      "mean_masked_mse": 0.002863479865732659,
-      "std_masked_mse": 0.006212914387210581
+      "mean_masked_mse": 0.002855671155308145,
+      "std_masked_mse": 0.006184462839502973
     }
   },
   "test": {
     "cascade": {
       "num_graphs": 94,
-      "mean_masked_mse": 0.003667994348725091,
-      "std_masked_mse": 0.0039050481506690614
+      "mean_masked_mse": 0.003666238708551936,
+      "std_masked_mse": 0.003886893002882504
     },
     "feedback_loop": {
       "num_graphs": 92,
-      "mean_masked_mse": 0.002736525527671288,
-      "std_masked_mse": 0.00242629053507034
+      "mean_masked_mse": 0.0025340493481132357,
+      "std_masked_mse": 0.002362323103939911
     },
     "feedforward_loop": {
       "num_graphs": 87,
-      "mean_masked_mse": 0.00434843082084564,
-      "std_masked_mse": 0.006204846626481446
+      "mean_masked_mse": 0.0043424742820280205,
+      "std_masked_mse": 0.006173488291672807
     },
     "single_input_module": {
       "num_graphs": 87,
-      "mean_masked_mse": 0.004843599626615966,
-      "std_masked_mse": 0.011617410376475307
+      "mean_masked_mse": 0.0048536099765306585,
+      "std_masked_mse": 0.011662697370498836
     }
   }
 }

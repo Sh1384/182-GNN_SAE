@@ -474,9 +474,9 @@ def main():
     print()
 
     print("Loading activation datasets...")
-    train_dir = Path("outputs/activations/layer2/train")
-    val_dir = Path("outputs/activations/layer2/val")
-    test_dir = Path("outputs/activations/layer2/test")
+    train_dir = Path("outputs/activations/layer2_new/train")
+    val_dir = Path("outputs/activations/layer2_new/val")
+    test_dir = Path("outputs/activations/layer2_new/test")
 
     if not train_dir.exists():
         print(f"Error: {train_dir} not found. Please run gnn_train.py first.")
