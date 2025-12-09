@@ -164,21 +164,45 @@ def evaluate_gnn_output(gnn_model, layer2_activations, edge_index, edge_weight):
 # Main Analysis Logic
 # -----------------------------------------------------------------------------
 
-def run_ablation_experiment(latent_dim, k, ablate_indices, experiment_name, motif_type_filter=None):
+def run_ablation_experiment(latent_dim, k, ablate_indices, experiment_name, motif_type_filter=None, use_mixed_motifs=False):
     print(f"Running Ablation: {experiment_name}")
     sae_model = load_sae_model(latent_dim, k)
     gnn_model = load_gnn_model()
 
-    with open('outputs/test_graph_ids.json', 'r') as f:
-        graph_ids = json.load(f)['graph_ids']
+    # Load graph IDs based on mode
+    if use_mixed_motifs:
+        # Use ALL mixed-motif graphs (4000-4999)
+        # These should be in outputs/activations/layer2_new/mixed/ (generated with current GNN)
+        mixed_dir = Path('outputs/activations/layer2_new/mixed')
+        if not mixed_dir.exists():
+            print(f"ERROR: Mixed-motif activations not found at {mixed_dir}")
+            print("Please run: python generate_mixed_motif_activations.py")
+            return pd.DataFrame()
+
+        graph_ids = []
+        for act_file in mixed_dir.glob('graph_*.pt'):
+            graph_id = int(act_file.stem.replace('graph_', ''))
+            graph_ids.append(graph_id)
+
+        if len(graph_ids) == 0:
+            print(f"ERROR: No activation files found in {mixed_dir}")
+            print("Please run: python generate_mixed_motif_activations.py")
+            return pd.DataFrame()
+
+        graph_ids = sorted(graph_ids)
+        print(f"Found {len(graph_ids)} mixed-motif graphs (range: {min(graph_ids)}-{max(graph_ids)})")
+    else:
+        # Use single-motif test graphs
+        with open('outputs/test_graph_ids.json', 'r') as f:
+            graph_ids = json.load(f)['graph_ids']
 
     results = []
     print(f"Processing {len(graph_ids)} graphs...")
-    
+
     for graph_id in tqdm(graph_ids):
         # 1. Determine Motif
         motif_label = get_dominant_motif(graph_id)
-        
+
         # Apply optional filter
         if motif_type_filter and motif_type_filter.lower() != 'all':
             # Simple check if filter string is part of label
@@ -186,8 +210,17 @@ def run_ablation_experiment(latent_dim, k, ablate_indices, experiment_name, moti
                 continue
 
         # 2. Load Data
-        act_file = Path(f"outputs/activations/layer2_new/test/graph_{graph_id}.pt")
-        if not act_file.exists(): continue
+        if use_mixed_motifs:
+            # Mixed motifs are in layer2_new/mixed (generated with current GNN)
+            act_file = Path(f"outputs/activations/layer2_new/mixed/graph_{graph_id}.pt")
+            if not act_file.exists():
+                continue
+        else:
+            # Single motifs use layer2_new/test
+            act_file = Path(f"outputs/activations/layer2_new/test/graph_{graph_id}.pt")
+            if not act_file.exists():
+                continue
+
         original_acts = torch.load(act_file, weights_only=True)
 
         # 3. SAE Reconstructions
@@ -380,6 +413,8 @@ def main():
     parser.add_argument('--feature', type=str, required=True, help='e.g. z496 or z496,z200')
     parser.add_argument('--motif_type', type=str, default='all', help='Optional filter')
     parser.add_argument('--experiment_name', type=str, default=None, help='Optional experiment name override')
+    parser.add_argument('--use_mixed_motifs', action='store_true',
+                       help='Run ablations on mixed-motif graphs (4000+) using dominant motif labels')
     args = parser.parse_args()
 
     ablate_indices = get_feature_indices(args.feature, args.latent_dim)
@@ -394,7 +429,8 @@ def main():
     print(f"Ablating indices: {ablate_indices}")
 
     # Run Analysis
-    df = run_ablation_experiment(args.latent_dim, args.k, ablate_indices, experiment_name, args.motif_type)
+    df = run_ablation_experiment(args.latent_dim, args.k, ablate_indices, experiment_name,
+                                 args.motif_type, args.use_mixed_motifs)
 
     # Save results to CSV
     results_file = ABLATION_DIR / "results" / f"{experiment_name}_results.csv"

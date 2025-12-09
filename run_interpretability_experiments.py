@@ -39,9 +39,11 @@ import sys
 # Directories
 ABLATION_DIR = Path("ablations")
 
-def setup_directories(latent_dim, k, min_rpb):
+def setup_directories(latent_dim, k, min_rpb, use_mixed_motifs=False):
     """Create experiment-specific directories."""
     exp_name = f"latent{latent_dim}_k{k}_rpb{min_rpb:.2f}"
+    if use_mixed_motifs:
+        exp_name += "_mixed"
     results_dir = ABLATION_DIR / f"interpretability_{exp_name}_results"
     plots_dir = ABLATION_DIR / f"interpretability_{exp_name}_plots"
     results_dir.mkdir(parents=True, exist_ok=True)
@@ -108,7 +110,7 @@ def save_feature_mapping(motif_features, results_dir, min_rpb):
         json.dump(mapping, f, indent=2)
     print(f"Saved feature mapping to: {output_path}")
 
-def run_single_ablation(latent_dim, k, features, experiment_name):
+def run_single_ablation(latent_dim, k, features, experiment_name, use_mixed_motifs=False):
     """Run a single ablation experiment."""
     feature_str = ','.join(features)
 
@@ -119,6 +121,10 @@ def run_single_ablation(latent_dim, k, features, experiment_name):
         "--feature", feature_str,
         "--experiment_name", experiment_name
     ]
+
+    # Add flag for mixed motifs
+    if use_mixed_motifs:
+        cmd.append("--use_mixed_motifs")
 
     result = subprocess.run(cmd, capture_output=True, text=True)
 
@@ -135,7 +141,7 @@ def run_single_ablation(latent_dim, k, features, experiment_name):
     df = pd.read_csv(results_file)
     return df
 
-def run_random_control_trials(latent_dim, k, n_features, n_trials, non_filtered_features):
+def run_random_control_trials(latent_dim, k, n_features, n_trials, non_filtered_features, use_mixed_motifs=False):
     """Run multiple random ablation trials and collect statistics."""
     print(f"\nRunning {n_trials} random control trials (ablating {n_features} features each)...")
 
@@ -151,7 +157,7 @@ def run_random_control_trials(latent_dim, k, n_features, n_trials, non_filtered_
 
         experiment_name = f"random_trial_{n_features}feat_n{trial}_k{k}"
 
-        df = run_single_ablation(latent_dim, k, random_features, experiment_name)
+        df = run_single_ablation(latent_dim, k, random_features, experiment_name, use_mixed_motifs)
 
         if df is not None:
             # Compute mean impact per motif type for this trial
@@ -342,6 +348,9 @@ Examples:
 
   # More random trials for robust statistics
   python run_interpretability_experiments.py --latent_dim 512 --k 4 --min_rpb 0.08 --n_random_trials 50
+
+  # Test on mixed-motif graphs using dominant motif labels
+  python run_interpretability_experiments.py --latent_dim 128 --k 8 --min_rpb 0.15 --use_mixed_motifs
         """
     )
     parser.add_argument('--latent_dim', type=int, required=True,
@@ -352,6 +361,8 @@ Examples:
                        help='Minimum |rpb| threshold. Recommended: 0.05-0.15')
     parser.add_argument('--n_random_trials', type=int, default=20,
                        help='Number of random control trials per feature count (default: 20)')
+    parser.add_argument('--use_mixed_motifs', action='store_true',
+                       help='Run ablations on mixed-motif graphs (4000-4999) using dominant motif labels')
     args = parser.parse_args()
 
     # Validate inputs
@@ -363,13 +374,15 @@ Examples:
         print("WARNING: Less than 10 random trials may not provide robust statistics")
 
     # Setup
-    results_dir, plots_dir = setup_directories(args.latent_dim, args.k, args.min_rpb)
+    results_dir, plots_dir = setup_directories(args.latent_dim, args.k, args.min_rpb, args.use_mixed_motifs)
 
     print("="*70)
     print("MOTIF-SPECIFIC ABLATION WITH EFFECT SIZE FILTERING")
     print("="*70)
     print(f"SAE Configuration:")
     print(f"  latent_dim={args.latent_dim}, k={args.k}")
+    print(f"Graph Type:")
+    print(f"  {'Mixed-motif graphs (4000-4999) with dominant motif labels' if args.use_mixed_motifs else 'Single-motif graphs (0-3999)'}")
     print(f"Feature Selection:")
     print(f"  FDR threshold: < 0.05")
     print(f"  Min |rpb| threshold: >= {args.min_rpb}")
@@ -413,7 +426,7 @@ Examples:
         print(f"\nAblating {feature_set_name} features ({len(features)})...")
         experiment_name = f"{feature_set_name.lower().replace(' ', '_')}_l{args.latent_dim}_k{args.k}"
 
-        df = run_single_ablation(args.latent_dim, args.k, features, experiment_name)
+        df = run_single_ablation(args.latent_dim, args.k, features, experiment_name, args.use_mixed_motifs)
 
         if df is not None:
             for motif in df['Motif'].unique():
@@ -441,7 +454,8 @@ Examples:
 
     for n_features in unique_feature_counts:
         random_df = run_random_control_trials(args.latent_dim, args.k, n_features,
-                                              args.n_random_trials, non_filtered_features)
+                                              args.n_random_trials, non_filtered_features,
+                                              args.use_mixed_motifs)
         random_df.to_csv(results_dir / f'random_{n_features}feat_trials.csv', index=False)
         random_results_dict[n_features] = random_df
 

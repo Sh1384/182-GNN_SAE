@@ -1,0 +1,44 @@
+{
+  "filtering": {
+    "min_rpb": 0.15,
+    "description": "Features with FDR<0.05 and |rpb|>=0.15"
+  },
+  "features_per_motif": {
+    "Cascade": [],
+    "Feedback Loop": [
+      "z11",
+      "z113",
+      "z125",
+      "z128",
+      "z26",
+      "z38",
+      "z39",
+      "z49",
+      "z54",
+      "z66",
+      "z80",
+      "z82",
+      "z86",
+      "z88",
+      "z89",
+      "z93",
+      "z98"
+    ],
+    "Feedforward Loop": [],
+    "Single Input Module": [
+      "z11",
+      "z113",
+      "z125",
+      "z25",
+      "z26",
+      "z38",
+      "z39",
+      "z49",
+      "z66",
+      "z80",
+      "z82",
+      "z86",
+      "z88"
+    ]
+  }
+}
