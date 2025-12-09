@@ -72,8 +72,12 @@ def load_gnn_model():
         if not Path(gnn_checkpoint_path).exists():
             return None
 
-        gnn = GCNModel(input_dim=2, hidden_dim1=248, hidden_dim2=64, output_dim=1, dropout=0.5)
+        # Load state dict to infer architecture
         state_dict = torch.load(gnn_checkpoint_path, weights_only=True)
+        hidden_dim1 = state_dict['conv1.bias'].shape[0]
+        hidden_dim2 = state_dict['conv2.bias'].shape[0]
+
+        gnn = GCNModel(input_dim=2, hidden_dim1=hidden_dim1, hidden_dim2=hidden_dim2, output_dim=1, dropout=0.5)
         gnn.load_state_dict(state_dict)
         gnn.eval()
         return gnn
@@ -182,7 +186,7 @@ def run_ablation_experiment(latent_dim, k, ablate_indices, experiment_name, moti
                 continue
 
         # 2. Load Data
-        act_file = Path(f"outputs/activations/layer2/test/graph_{graph_id}.pt")
+        act_file = Path(f"outputs/activations/layer2_new/test/graph_{graph_id}.pt")
         if not act_file.exists(): continue
         original_acts = torch.load(act_file, weights_only=True)
 
@@ -401,13 +405,19 @@ def main():
     print("\n" + "="*60)
     print("RESULTS SUMMARY")
     print("="*60)
-    
+
+    if df.empty or 'Ablation Impact' not in df.columns:
+        print("ERROR: No results generated. DataFrame is empty or missing expected columns.")
+        print(f"DataFrame shape: {df.shape}")
+        print(f"DataFrame columns: {df.columns.tolist()}")
+        return
+
     # Overall Impact
     mean_imp = df['Ablation Impact'].mean()
     p_val = stats.wilcoxon(df['Loss (Full SAE)'], df['Loss (Ablated)'])[1]
-    
+
     print(f"Mean Ablation Impact: {mean_imp:.2e} (p={p_val:.2e})")
-    
+
     # Breakdown by Motif
     print("\nImpact by Motif Type:")
     motif_stats = df.groupby('Motif')['Ablation Impact'].agg(['count', 'mean', 'std'])

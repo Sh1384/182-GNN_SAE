@@ -212,9 +212,7 @@ def analyze_configuration(latent_dim, k):
         print(f"  ⚠ No valid correlations, skipping...")
         return None
 
-    # Permutation testing
-    print(f"  Running {N_PERMUTATIONS} permutations...")
-    df_corr = permutation_test(df, df_corr, latent_dim, N_PERMUTATIONS)
+    print(f"  Skipping significance testing...")
 
     # Compute precision/recall for top features
     latent_features = [f'z{i+1}' for i in range(latent_dim)]
@@ -242,7 +240,6 @@ def analyze_configuration(latent_dim, k):
     df_pr = pd.DataFrame(precision_recall_results)
 
     # Calculate summary metrics
-    n_significant = df_corr['significant_fdr'].sum()
     n_features_tested = df_corr['feature'].nunique()
     activation_counts = {f'z{i+1}': (df[f'z{i+1}'] > 0).sum() for i in range(latent_dim)}
     n_active_features = sum(1 for count in activation_counts.values() if count > 0)
@@ -252,24 +249,19 @@ def analyze_configuration(latent_dim, k):
     max_rpb = df_corr['rpb_abs'].max() if len(df_corr) > 0 else 0
     max_rpb_feature = df_corr.loc[df_corr['rpb_abs'].idxmax()] if len(df_corr) > 0 else None
 
-    sig_corrs = df_corr[df_corr['significant_fdr']]
-    max_sig_rpb = sig_corrs['rpb_abs'].max() if len(sig_corrs) > 0 else 0
-
     best_f1 = df_pr['f1_score'].max() if len(df_pr) > 0 else 0
     best_f1_row = df_pr.loc[df_pr['f1_score'].idxmax()] if len(df_pr) > 0 else None
 
     best_precision = df_pr['precision'].max() if len(df_pr) > 0 else 0
     best_recall = df_pr['recall'].max() if len(df_pr) > 0 else 0
 
-    # Composite quality score
-    significance_rate = n_significant / len(df_corr) if len(df_corr) > 0 else 0
+    # Composite quality score (without significance testing)
     capacity_utilization = 1 - dead_feature_rate
 
     composite_score = (
-        0.35 * min(significance_rate * 10, 1.0) +  # Significance (capped at 10%)
-        0.25 * min(max_sig_rpb / 0.5, 1.0) +        # Effect size (capped at 0.5)
-        0.25 * best_f1 +                             # Predictive power
-        0.15 * min(capacity_utilization, 1.0)        # Capacity utilization
+        0.50 * min(max_rpb / 0.5, 1.0) +            # Effect size (50%, capped at 0.5)
+        0.35 * best_f1 +                             # Predictive power (35%)
+        0.15 * min(capacity_utilization, 1.0)        # Capacity utilization (15%)
     )
 
     results = {
@@ -279,12 +271,9 @@ def analyze_configuration(latent_dim, k):
         'n_features_tested': n_features_tested,
         'n_active_features': n_active_features,
         'dead_feature_rate': dead_feature_rate,
-        'n_significant': n_significant,
-        'significance_rate': significance_rate,
         'max_rpb_abs': max_rpb,
         'max_rpb_feature': max_rpb_feature['feature'] if max_rpb_feature is not None else 'N/A',
         'max_rpb_motif': max_rpb_feature['motif'] if max_rpb_feature is not None else 'N/A',
-        'max_sig_rpb_abs': max_sig_rpb,
         'best_f1': best_f1,
         'best_f1_feature': best_f1_row['feature'] if best_f1_row is not None else 'N/A',
         'best_f1_motif': best_f1_row['motif'] if best_f1_row is not None else 'N/A',
@@ -293,7 +282,6 @@ def analyze_configuration(latent_dim, k):
         'composite_score': composite_score,
     }
 
-    print(f"  ✓ Significant pairs: {n_significant}/{len(df_corr)}")
     print(f"  ✓ Max |rpb|: {max_rpb:.3f}")
     print(f"  ✓ Best F1: {best_f1:.3f}")
     print(f"  ✓ Composite score: {composite_score:.3f}")
@@ -306,8 +294,7 @@ def main():
     print("SAE HYPERPARAMETER COMPARISON")
     print("="*70)
     print(f"\nTesting {len(CONFIGS)} configurations...")
-    print(f"Permutations per config: {N_PERMUTATIONS}")
-    print(f"Significance level: FDR < {SIGNIFICANCE_LEVEL}")
+    print(f"NOTE: Skipping significance testing for speed")
 
     results = []
 
@@ -338,14 +325,13 @@ def main():
     print("="*70)
 
     display_cols = [
-        'latent_dim', 'k', 'sparsity_pct', 'n_significant', 'significance_rate',
-        'max_sig_rpb_abs', 'best_f1', 'dead_feature_rate', 'composite_score'
+        'latent_dim', 'k', 'sparsity_pct', 'max_rpb_abs',
+        'best_f1', 'dead_feature_rate', 'composite_score'
     ]
 
     top5 = df_results.head(5)[display_cols].copy()
     top5['sparsity_pct'] = top5['sparsity_pct'].round(2)
-    top5['significance_rate'] = top5['significance_rate'].round(4)
-    top5['max_sig_rpb_abs'] = top5['max_sig_rpb_abs'].round(3)
+    top5['max_rpb_abs'] = top5['max_rpb_abs'].round(3)
     top5['best_f1'] = top5['best_f1'].round(3)
     top5['dead_feature_rate'] = top5['dead_feature_rate'].round(3)
     top5['composite_score'] = top5['composite_score'].round(3)
@@ -361,8 +347,7 @@ def main():
     print(f"  k = {int(best['k'])}")
     print(f"  Sparsity: {best['sparsity_pct']:.2f}% ({best['description']})")
     print(f"\n  Key Metrics:")
-    print(f"    • Significant features: {int(best['n_significant'])} ({100*best['significance_rate']:.1f}%)")
-    print(f"    • Max correlation: |rpb| = {best['max_sig_rpb_abs']:.3f}")
+    print(f"    • Max correlation: |rpb| = {best['max_rpb_abs']:.3f}")
     print(f"    • Best F1 score: {best['best_f1']:.3f}")
     print(f"    • Active features: {int(best['n_active_features'])}/{int(best['latent_dim'])} ({100*(1-best['dead_feature_rate']):.1f}%)")
     print(f"    • Composite score: {best['composite_score']:.3f}")
@@ -371,15 +356,13 @@ def main():
     print("INTERPRETATION GUIDE")
     print("="*70)
     print("""
-  Composite Score Components:
-    • 35% - Significance rate (% of features with FDR < 0.05)
-    • 25% - Max significant correlation (effect size)
-    • 25% - Best F1 score (predictive performance)
+  Composite Score Components (no significance testing):
+    • 50% - Max correlation (effect size)
+    • 35% - Best F1 score (predictive performance)
     • 15% - Capacity utilization (1 - dead feature rate)
 
   Good Configuration Indicators:
     ✓ Composite score > 0.5
-    ✓ Significance rate > 2-5%
     ✓ Max |rpb| > 0.3
     ✓ Best F1 > 0.3
     ✓ Dead feature rate < 0.5

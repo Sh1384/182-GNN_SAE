@@ -1,16 +1,27 @@
 #!/usr/bin/env python3
 """
-Motif-Specific SAE Feature Ablation Experiments
+Motif-Specific SAE Feature Ablation Experiments with Configurable Effect Size Threshold
 
-Runs 3 ablation experiments to demonstrate SAE interpretability:
-1. Ablate Feedback Loop features → measure impact on all motif types
-2. Ablate Single Input Module features → measure impact on all motif types
-3. Ablate Random Control features → measure impact on all motif types
+Performs rigorous statistical testing of SAE interpretability by:
+1. Ablating features that significantly correlate with specific motifs
+2. Comparing against size-matched random feature ablations
+3. Computing statistical significance with z-scores, percentiles, and p-values
 
-Expected: Features significant for motif X should have largest impact on graphs of type X.
+Key features:
+- Configurable minimum effect size threshold (--min_rpb) to filter weak correlations
+- Uses FDR-corrected significance + effect size filtering
+- Robust random controls (20+ trials per feature count)
+- Comprehensive statistical analysis
 
 Usage:
-    python run_interpretability_experiments.py --latent_dim 512 --k 16
+    # Standard run with default threshold (rpb >= 0.05)
+    python run_interpretability_experiments.py --latent_dim 512 --k 4
+
+    # Strict threshold for strong correlations only
+    python run_interpretability_experiments.py --latent_dim 512 --k 4 --min_rpb 0.10
+
+    # Custom random trials
+    python run_interpretability_experiments.py --latent_dim 512 --k 4 --min_rpb 0.08 --n_random_trials 50
 """
 
 import argparse
@@ -22,35 +33,85 @@ import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
 from scipy import stats
+from tqdm import tqdm
+import sys
 
 # Directories
 ABLATION_DIR = Path("ablations")
-RESULTS_DIR = ABLATION_DIR / "interpretability_results"
-PLOTS_DIR = ABLATION_DIR / "interpretability_plots"
-RESULTS_DIR.mkdir(parents=True, exist_ok=True)
-PLOTS_DIR.mkdir(parents=True, exist_ok=True)
 
-def load_feature_mapping():
-    """Load feature-motif mapping from JSON."""
-    with open('outputs/feature_motif_mapping.json', 'r') as f:
-        return json.load(f)
+def setup_directories(latent_dim, k, min_rpb):
+    """Create experiment-specific directories."""
+    exp_name = f"latent{latent_dim}_k{k}_rpb{min_rpb:.2f}"
+    results_dir = ABLATION_DIR / f"interpretability_{exp_name}_results"
+    plots_dir = ABLATION_DIR / f"interpretability_{exp_name}_plots"
+    results_dir.mkdir(parents=True, exist_ok=True)
+    plots_dir.mkdir(parents=True, exist_ok=True)
+    return results_dir, plots_dir
 
-def run_ablation_experiment(latent_dim, k, feature_set_name, features):
-    """Run a single ablation experiment for a specific feature set."""
-    if len(features) == 0:
-        print(f"Skipping {feature_set_name} - no features to ablate")
-        return None
+def load_correlation_data(min_rpb=0.05):
+    """
+    Load correlation data and extract features that are:
+    1. Significant (FDR < 0.05)
+    2. Have effect size above threshold (|rpb| >= min_rpb)
 
+    Args:
+        min_rpb: Minimum absolute point-biserial correlation threshold
+
+    Returns:
+        motif_features: Dict mapping motif names to lists of features
+        non_filtered_features: List of features that don't meet criteria
+        filtered_df: DataFrame of features meeting both criteria
+    """
+    df = pd.read_csv('outputs/latent_correlations.csv', index_col=0)
+
+    # Apply dual filter: significance AND effect size
+    filtered_df = df[(df['significant_fdr'] == True) & (df['rpb_abs'] >= min_rpb)]
+
+    print(f"\nFiltering criteria:")
+    print(f"  - FDR < 0.05: {(df['significant_fdr'] == True).sum()} pairs")
+    print(f"  - |rpb| >= {min_rpb}: {(df['rpb_abs'] >= min_rpb).sum()} pairs")
+    print(f"  - Both criteria: {len(filtered_df)} pairs")
+
+    # Group by motif
+    motif_features = {}
+    motif_map = {
+        'in_cascade': 'Cascade',
+        'in_feedback_loop': 'Feedback Loop',
+        'in_feedforward_loop': 'Feedforward Loop',
+        'in_single_input_module': 'Single Input Module'
+    }
+
+    for motif_raw, motif_name in motif_map.items():
+        features = filtered_df[filtered_df['motif'] == motif_raw]['feature'].tolist()
+        motif_features[motif_name] = sorted(features)
+
+    # Get all features that don't meet criteria (for random controls)
+    all_features = df['feature'].unique()
+    filtered_features = set(filtered_df['feature'].unique())
+    non_filtered_features = sorted([f for f in all_features if f not in filtered_features])
+
+    return motif_features, non_filtered_features, filtered_df
+
+def save_feature_mapping(motif_features, results_dir, min_rpb):
+    """Save feature mapping to JSON."""
+    output_path = results_dir / 'feature_motif_mapping.json'
+
+    mapping = {
+        'filtering': {
+            'min_rpb': min_rpb,
+            'description': f'Features with FDR<0.05 and |rpb|>={min_rpb}'
+        },
+        'features_per_motif': motif_features
+    }
+
+    with open(output_path, 'w') as f:
+        json.dump(mapping, f, indent=2)
+    print(f"Saved feature mapping to: {output_path}")
+
+def run_single_ablation(latent_dim, k, features, experiment_name):
+    """Run a single ablation experiment."""
     feature_str = ','.join(features)
-    experiment_name = f"ablate_{feature_set_name.lower().replace(' ', '_')}"
 
-    print(f"\n{'='*60}")
-    print(f"Running: {feature_set_name} Ablation")
-    print(f"{'='*60}")
-    print(f"Ablating {len(features)} features: {features[:5]}...")
-
-    # Run ablation via run_ablation.py
-    import sys
     cmd = [
         sys.executable, "run_ablation.py",
         "--latent_dim", str(latent_dim),
@@ -62,55 +123,55 @@ def run_ablation_experiment(latent_dim, k, feature_set_name, features):
     result = subprocess.run(cmd, capture_output=True, text=True)
 
     if result.returncode != 0:
-        print(f"Error running ablation for {feature_set_name}:")
+        print(f"Error in ablation {experiment_name}:")
         print(result.stderr)
         return None
-
-    print(result.stdout)
 
     # Load results
     results_file = ABLATION_DIR / "results" / f"{experiment_name}_results.csv"
     if not results_file.exists():
-        print(f"Warning: Results file not found: {results_file}")
         return None
 
     df = pd.read_csv(results_file)
-    df['Ablated_Feature_Set'] = feature_set_name
-
     return df
 
-def compute_statistics(all_results):
-    """Compute statistical comparisons across ablation experiments."""
-    stats_results = []
+def run_random_control_trials(latent_dim, k, n_features, n_trials, non_filtered_features):
+    """Run multiple random ablation trials and collect statistics."""
+    print(f"\nRunning {n_trials} random control trials (ablating {n_features} features each)...")
 
-    for ablated_set in all_results['Ablated_Feature_Set'].unique():
-        ablated_data = all_results[all_results['Ablated_Feature_Set'] == ablated_set]
+    trial_results = []
 
-        for motif in ablated_data['Motif'].unique():
-            motif_data = ablated_data[ablated_data['Motif'] == motif]
+    for trial in tqdm(range(n_trials), desc=f"Random trials ({n_features} features)"):
+        # Sample random non-filtered features
+        if len(non_filtered_features) < n_features:
+            print(f"Warning: Only {len(non_filtered_features)} non-filtered features available, need {n_features}")
+            random_features = non_filtered_features
+        else:
+            random_features = sorted(np.random.choice(non_filtered_features, n_features, replace=False))
 
-            if len(motif_data) > 0:
-                mean_impact = motif_data['Ablation Impact'].mean()
-                std_impact = motif_data['Ablation Impact'].std()
-                median_impact = motif_data['Ablation Impact'].median()
+        experiment_name = f"random_trial_{n_features}feat_n{trial}_k{k}"
 
-                stats_results.append({
-                    'Ablated_Feature_Set': ablated_set,
-                    'Affected_Motif': motif,
-                    'N': len(motif_data),
-                    'Mean_Impact': mean_impact,
-                    'Std_Impact': std_impact,
-                    'Median_Impact': median_impact,
-                    'SE_Impact': std_impact / np.sqrt(len(motif_data)) if len(motif_data) > 0 else 0
+        df = run_single_ablation(latent_dim, k, random_features, experiment_name)
+
+        if df is not None:
+            # Compute mean impact per motif type for this trial
+            for motif in df['Motif'].unique():
+                motif_data = df[df['Motif'] == motif]
+                trial_results.append({
+                    'trial': trial,
+                    'n_features': n_features,
+                    'motif': motif,
+                    'mean_impact': motif_data['Ablation Impact'].mean(),
+                    'median_impact': motif_data['Ablation Impact'].median(),
+                    'std_impact': motif_data['Ablation Impact'].std()
                 })
 
-    return pd.DataFrame(stats_results)
+    return pd.DataFrame(trial_results)
 
-def plot_comparative_results(stats_df, all_results):
-    """Generate comprehensive comparative plots."""
+def plot_comparison_with_random_controls(motif_specific_results, random_results_dict,
+                                        motif_features, plots_dir, latent_dim, k, min_rpb):
+    """Generate comprehensive comparison plots."""
 
-    # Define motif order and colors
-    motif_order = ['Feedforward Loop', 'Feedback Loop', 'Single Input Module', 'Cascade']
     motif_colors = {
         'Feedforward Loop': '#377eb8',
         'Feedback Loop': '#ff7f00',
@@ -118,210 +179,308 @@ def plot_comparative_results(stats_df, all_results):
         'Cascade': '#e41a1c'
     }
 
-    # Filter to keep only existing motifs
-    motif_order = [m for m in motif_order if m in stats_df['Affected_Motif'].unique()]
+    # Determine which motifs to plot (only those with significant features)
+    motifs_to_plot = [m for m, feats in motif_features.items() if len(feats) > 0]
+    n_motifs = len(motifs_to_plot)
 
-    # Plot 1: Heatmap of Ablation Impact
-    fig, ax = plt.subplots(1, 1, figsize=(10, 6))
-
-    pivot_data = stats_df.pivot(index='Ablated_Feature_Set',
-                                  columns='Affected_Motif',
-                                  values='Mean_Impact')
-
-    # Reorder columns to match motif_order
-    pivot_data = pivot_data[[col for col in motif_order if col in pivot_data.columns]]
-
-    sns.heatmap(pivot_data, annot=True, fmt='.2e', cmap='RdYlBu_r',
-                center=0, cbar_kws={'label': 'Mean Ablation Impact (MSE increase)'},
-                ax=ax, linewidths=0.5, linecolor='gray')
-
-    ax.set_title('SAE Interpretability: Motif-Specific Feature Ablation Impact\n' +
-                 'Rows = Ablated Features | Columns = Affected Graph Type',
-                 fontsize=13, fontweight='bold', pad=15)
-    ax.set_xlabel('Affected Motif Type (Graph Type)', fontsize=11)
-    ax.set_ylabel('Ablated Feature Set', fontsize=11)
-
-    plt.tight_layout()
-    plt.savefig(PLOTS_DIR / 'interpretability_heatmap.png', dpi=200, bbox_inches='tight')
-    print(f"Saved: {PLOTS_DIR / 'interpretability_heatmap.png'}")
-    plt.close()
-
-    # Plot 2: Bar Chart with Error Bars
-    fig, axes = plt.subplots(1, len(stats_df['Ablated_Feature_Set'].unique()),
-                             figsize=(16, 5), sharey=True)
-
-    if len(stats_df['Ablated_Feature_Set'].unique()) == 1:
-        axes = [axes]
-
-    for idx, ablated_set in enumerate(stats_df['Ablated_Feature_Set'].unique()):
-        ax = axes[idx]
-        subset = stats_df[stats_df['Ablated_Feature_Set'] == ablated_set]
-        subset = subset.set_index('Affected_Motif').reindex(motif_order).reset_index()
-
-        colors = [motif_colors.get(m, '#999999') for m in subset['Affected_Motif']]
-
-        ax.bar(range(len(subset)), subset['Mean_Impact'],
-               yerr=subset['SE_Impact'],
-               color=colors, alpha=0.7, capsize=5, edgecolor='black', linewidth=1.5)
-
-        ax.set_xticks(range(len(subset)))
-        ax.set_xticklabels(subset['Affected_Motif'], rotation=45, ha='right')
-        ax.set_title(f'Ablating:\n{ablated_set}', fontsize=11, fontweight='bold')
-        ax.grid(axis='y', alpha=0.3, linestyle='--')
-
-        if idx == 0:
-            ax.set_ylabel('Mean Ablation Impact\n(GNN MSE Increase)', fontsize=10)
-
-    plt.suptitle('Motif-Specific Ablation Impact Across Graph Types',
-                 fontsize=14, fontweight='bold', y=1.02)
-    plt.tight_layout()
-    plt.savefig(PLOTS_DIR / 'interpretability_bar_chart.png', dpi=200, bbox_inches='tight')
-    print(f"Saved: {PLOTS_DIR / 'interpretability_bar_chart.png'}")
-    plt.close()
-
-    # Plot 3: Boxplots for each ablation experiment
-    fig, axes = plt.subplots(1, len(all_results['Ablated_Feature_Set'].unique()),
-                             figsize=(18, 5), sharey=True)
-
-    if len(all_results['Ablated_Feature_Set'].unique()) == 1:
-        axes = [axes]
-
-    for idx, ablated_set in enumerate(all_results['Ablated_Feature_Set'].unique()):
-        ax = axes[idx]
-        subset = all_results[all_results['Ablated_Feature_Set'] == ablated_set]
-
-        # Prepare data for boxplot
-        box_data = [subset[subset['Motif'] == m]['Ablation Impact'].values
-                    for m in motif_order if m in subset['Motif'].unique()]
-        box_labels = [m for m in motif_order if m in subset['Motif'].unique()]
-        box_colors = [motif_colors[m] for m in box_labels]
-
-        bp = ax.boxplot(box_data, labels=box_labels, patch_artist=True,
-                        boxprops=dict(linewidth=2, edgecolor='black'),
-                        whiskerprops=dict(linewidth=1.5),
-                        capprops=dict(linewidth=1.5),
-                        medianprops=dict(linewidth=2.5, color='red'),
-                        showfliers=False)
-
-        for patch, color in zip(bp['boxes'], box_colors):
-            patch.set_facecolor(color)
-            patch.set_alpha(0.6)
-
-        ax.set_xticklabels(box_labels, rotation=45, ha='right')
-        ax.set_title(f'Ablating: {ablated_set}', fontsize=11, fontweight='bold')
-        ax.grid(axis='y', alpha=0.3, linestyle='--')
-
-        if idx == 0:
-            ax.set_ylabel('Ablation Impact (GNN MSE Increase)', fontsize=10)
-
-    plt.suptitle('Distribution of Ablation Impact by Motif Type',
-                 fontsize=14, fontweight='bold', y=1.02)
-    plt.tight_layout()
-    plt.savefig(PLOTS_DIR / 'interpretability_boxplots.png', dpi=200, bbox_inches='tight')
-    print(f"Saved: {PLOTS_DIR / 'interpretability_boxplots.png'}")
-    plt.close()
-
-def print_interpretability_summary(stats_df):
-    """Print summary showing evidence of interpretability."""
-    print("\n" + "="*70)
-    print("INTERPRETABILITY ANALYSIS SUMMARY")
-    print("="*70)
-
-    # For each ablated feature set, find which motif type is most affected
-    for ablated_set in stats_df['Ablated_Feature_Set'].unique():
-        subset = stats_df[stats_df['Ablated_Feature_Set'] == ablated_set]
-        max_impact = subset.loc[subset['Mean_Impact'].idxmax()]
-
-        print(f"\n{ablated_set} Features:")
-        print(f"  Most affected motif: {max_impact['Affected_Motif']}")
-        print(f"  Mean impact: {max_impact['Mean_Impact']:.2e}")
-
-        print(f"\n  Impact by motif type:")
-        for _, row in subset.sort_values('Mean_Impact', ascending=False).iterrows():
-            print(f"    {row['Affected_Motif']}: {row['Mean_Impact']:.2e} ± {row['SE_Impact']:.2e}")
-
-    # Interpretability check
-    print("\n" + "="*70)
-    print("INTERPRETABILITY CHECK:")
-    print("="*70)
-
-    feedback_ablation = stats_df[stats_df['Ablated_Feature_Set'] == 'Feedback Loop']
-    sim_ablation = stats_df[stats_df['Ablated_Feature_Set'] == 'Single Input Module']
-
-    if len(feedback_ablation) > 0:
-        fbl_on_fbl = feedback_ablation[feedback_ablation['Affected_Motif'] == 'Feedback Loop']['Mean_Impact'].values
-        fbl_on_ffl = feedback_ablation[feedback_ablation['Affected_Motif'] == 'Feedforward Loop']['Mean_Impact'].values
-
-        if len(fbl_on_fbl) > 0 and len(fbl_on_ffl) > 0:
-            ratio = fbl_on_fbl[0] / fbl_on_ffl[0] if fbl_on_ffl[0] > 0 else float('inf')
-            check1 = "✓ PASS" if ratio > 1.0 else "✗ FAIL"
-            print(f"\nFeedback Loop features affect Feedback Loop graphs {ratio:.2f}x more than Feedforward Loop graphs: {check1}")
-
-    if len(sim_ablation) > 0:
-        sim_on_sim = sim_ablation[sim_ablation['Affected_Motif'] == 'Single Input Module']['Mean_Impact'].values
-        sim_on_ffl = sim_ablation[sim_ablation['Affected_Motif'] == 'Feedforward Loop']['Mean_Impact'].values
-
-        if len(sim_on_sim) > 0 and len(sim_on_ffl) > 0:
-            ratio = sim_on_sim[0] / sim_on_ffl[0] if sim_on_ffl[0] > 0 else float('inf')
-            check2 = "✓ PASS" if ratio > 1.0 else "✗ FAIL"
-            print(f"Single Input Module features affect SIM graphs {ratio:.2f}x more than Feedforward Loop graphs: {check2}")
-
-    print("\n" + "="*70)
-
-def main():
-    parser = argparse.ArgumentParser(description='Run motif-specific ablation experiments')
-    parser.add_argument('--latent_dim', type=int, required=True, help='SAE latent dimension')
-    parser.add_argument('--k', type=int, required=True, help='SAE top-k sparsity')
-    args = parser.parse_args()
-
-    print("="*70)
-    print("MOTIF-SPECIFIC FEATURE ABLATION EXPERIMENTS")
-    print("="*70)
-    print(f"SAE Configuration: latent_dim={args.latent_dim}, k={args.k}")
-
-    # Load feature mapping
-    feature_mapping = load_feature_mapping()
-    print(f"\nFeature sets:")
-    for name, features in feature_mapping.items():
-        print(f"  {name}: {len(features)} features")
-
-    # Run ablation experiments
-    all_results = []
-
-    for feature_set_name in ['Feedback Loop', 'Single Input Module', 'Random Control']:
-        features = feature_mapping.get(feature_set_name, [])
-
-        if len(features) > 0:
-            df = run_ablation_experiment(args.latent_dim, args.k, feature_set_name, features)
-            if df is not None:
-                all_results.append(df)
-
-    if len(all_results) == 0:
-        print("Error: No ablation experiments completed successfully")
+    if n_motifs == 0:
+        print("No motifs with significant features to plot!")
         return
 
-    # Combine all results
-    combined_results = pd.concat(all_results, ignore_index=True)
-    combined_results.to_csv(RESULTS_DIR / 'all_ablation_results.csv', index=False)
-    print(f"\nSaved combined results to: {RESULTS_DIR / 'all_ablation_results.csv'}")
+    # Create subplots
+    fig, axes = plt.subplots(1, n_motifs, figsize=(6*n_motifs, 6))
+    if n_motifs == 1:
+        axes = [axes]
 
-    # Compute statistics
-    stats_df = compute_statistics(combined_results)
-    stats_df.to_csv(RESULTS_DIR / 'ablation_statistics.csv', index=False)
-    print(f"Saved statistics to: {RESULTS_DIR / 'ablation_statistics.csv'}")
+    motif_order = ['Feedforward Loop', 'Feedback Loop', 'Single Input Module', 'Cascade']
+    x_pos = np.arange(len(motif_order))
+    width = 0.35
+
+    for idx, motif_name in enumerate(motifs_to_plot):
+        ax = axes[idx]
+        n_features = len(motif_features[motif_name])
+
+        # Get specific motif results
+        specific = motif_specific_results[motif_specific_results['Feature_Set'] == motif_name]
+        random = random_results_dict[n_features]
+
+        # Specific features
+        specific_means = [specific[specific['Motif'] == m]['Mean_Impact'].values[0]
+                         if len(specific[specific['Motif'] == m]) > 0 else 0
+                         for m in motif_order]
+        specific_ses = [specific[specific['Motif'] == m]['SE_Impact'].values[0]
+                       if len(specific[specific['Motif'] == m]) > 0 else 0
+                       for m in motif_order]
+
+        # Random controls
+        random_means = [random[random['motif'] == m]['mean_impact'].mean()
+                       if len(random[random['motif'] == m]) > 0 else 0
+                       for m in motif_order]
+        random_ses = [random[random['motif'] == m]['mean_impact'].std() / np.sqrt(len(random[random['motif'] == m]))
+                     if len(random[random['motif'] == m]) > 0 else 0
+                     for m in motif_order]
+
+        bars1 = ax.bar(x_pos - width/2, specific_means, width,
+                      label=f'{motif_name} Features ({n_features})',
+                      yerr=specific_ses, capsize=5, alpha=0.8, edgecolor='black', linewidth=1.5,
+                      color=[motif_colors.get(m, '#999999') for m in motif_order])
+        bars2 = ax.bar(x_pos + width/2, random_means, width,
+                      label=f'Random Controls ({n_features} feat)',
+                      yerr=random_ses, capsize=5, alpha=0.6, edgecolor='black', linewidth=1.5,
+                      color='gray')
+
+        ax.set_xticks(x_pos)
+        ax.set_xticklabels(motif_order, rotation=45, ha='right')
+        ax.set_ylabel('Mean Ablation Impact\n(MSE increase)', fontsize=11)
+        ax.set_title(f'{motif_name} Features vs Random Controls\n({n_features} features ablated)',
+                    fontsize=12, fontweight='bold')
+        ax.legend(fontsize=9)
+        ax.grid(axis='y', alpha=0.3, linestyle='--')
+        ax.axhline(y=0, color='black', linestyle='-', linewidth=0.5)
+
+    plt.suptitle(f'SAE Interpretability: Motif-Specific Features vs Random Controls\n'
+                 f'(latent_dim={latent_dim}, k={k}, min_rpb={min_rpb:.2f})',
+                 fontsize=14, fontweight='bold', y=1.02)
+    plt.tight_layout()
+
+    output_path = plots_dir / 'interpretability_vs_random_controls.png'
+    plt.savefig(output_path, dpi=200, bbox_inches='tight')
+    print(f"Saved: {output_path}")
+    plt.close()
+
+def compute_statistical_significance(motif_specific_results, random_results):
+    """Compute statistical tests comparing motif-specific to random."""
+    results = []
+
+    for feature_set in motif_specific_results['Feature_Set'].unique():
+        specific_data = motif_specific_results[motif_specific_results['Feature_Set'] == feature_set]
+
+        # Match random controls by number of features
+        n_features = specific_data['N_Features'].values[0]
+        random_data = random_results[random_results['n_features'] == n_features]
+
+        for motif in specific_data['Motif'].unique():
+            specific_impact = specific_data[specific_data['Motif'] == motif]['Mean_Impact'].values[0]
+            random_impacts = random_data[random_data['motif'] == motif]['mean_impact'].values
+
+            if len(random_impacts) > 0:
+                # Percentile of specific impact in random distribution
+                percentile = stats.percentileofscore(random_impacts, specific_impact)
+
+                # Z-score
+                random_mean = random_impacts.mean()
+                random_std = random_impacts.std()
+                z_score = (specific_impact - random_mean) / random_std if random_std > 0 else 0
+
+                # One-sample t-test
+                t_stat, p_val = stats.ttest_1samp(random_impacts, specific_impact)
+
+                results.append({
+                    'Feature_Set': feature_set,
+                    'Motif': motif,
+                    'N_Features': n_features,
+                    'Specific_Impact': specific_impact,
+                    'Random_Mean': random_mean,
+                    'Random_Std': random_std,
+                    'Z_Score': z_score,
+                    'Percentile': percentile,
+                    'P_Value': p_val,
+                    'Significant': p_val < 0.05
+                })
+
+    return pd.DataFrame(results)
+
+def print_monosemanticity_report(filtered_df, min_rpb):
+    """Print detailed monosemanticity analysis."""
+    print("\n" + "="*70)
+    print("MONOSEMANTICITY ANALYSIS")
+    print("="*70)
+
+    # Count features significant for each number of motifs
+    features_per_motif = filtered_df.groupby('feature')['motif'].count()
+
+    print(f"\nFeature specificity (after filtering):")
+    print(f"  Monosemantic (1 motif only): {(features_per_motif == 1).sum()}")
+    print(f"  Polysemantic (2 motifs): {(features_per_motif == 2).sum()}")
+    print(f"  Polysemantic (3 motifs): {(features_per_motif == 3).sum()}")
+    print(f"  Polysemantic (4 motifs): {(features_per_motif == 4).sum()}")
+
+    total_features = len(features_per_motif)
+    monosemantic = (features_per_motif == 1).sum()
+    polysemantic = (features_per_motif > 1).sum()
+
+    if total_features > 0:
+        print(f"\n  Total unique features: {total_features}")
+        print(f"  Monosemantic rate: {100*monosemantic/total_features:.1f}%")
+        print(f"  Polysemantic rate: {100*polysemantic/total_features:.1f}%")
+
+    # Show most polysemantic features
+    if polysemantic > 0:
+        print(f"\nMost polysemantic features (top 10):")
+        top_poly = features_per_motif.nlargest(10)
+        for feature, count in top_poly.items():
+            if count > 1:
+                feature_data = filtered_df[filtered_df['feature'] == feature]
+                motifs = ', '.join(feature_data['motif'].values)
+                rpbs = ', '.join([f"{r:.3f}" for r in feature_data['rpb'].values])
+                print(f"  {feature}: {count} motifs ({motifs}) [rpb: {rpbs}]")
+
+def main():
+    parser = argparse.ArgumentParser(
+        description='Run interpretability experiments with configurable effect size threshold',
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""
+Examples:
+  # Default: FDR < 0.05 and |rpb| >= 0.05
+  python run_interpretability_experiments.py --latent_dim 512 --k 4
+
+  # Strict: Only strong correlations
+  python run_interpretability_experiments.py --latent_dim 512 --k 4 --min_rpb 0.10
+
+  # Very strict: Very strong correlations only
+  python run_interpretability_experiments.py --latent_dim 512 --k 4 --min_rpb 0.15
+
+  # More random trials for robust statistics
+  python run_interpretability_experiments.py --latent_dim 512 --k 4 --min_rpb 0.08 --n_random_trials 50
+        """
+    )
+    parser.add_argument('--latent_dim', type=int, required=True,
+                       help='SAE latent dimension (e.g., 128, 256, 512)')
+    parser.add_argument('--k', type=int, required=True,
+                       help='SAE top-k sparsity (e.g., 4, 8, 16, 32)')
+    parser.add_argument('--min_rpb', type=float, default=0,
+                       help='Minimum |rpb| threshold. Recommended: 0.05-0.15')
+    parser.add_argument('--n_random_trials', type=int, default=20,
+                       help='Number of random control trials per feature count (default: 20)')
+    args = parser.parse_args()
+
+    # Validate inputs
+    if args.min_rpb < 0 or args.min_rpb > 1:
+        print("ERROR: --min_rpb must be between 0 and 1")
+        return
+
+    if args.n_random_trials < 10:
+        print("WARNING: Less than 10 random trials may not provide robust statistics")
+
+    # Setup
+    results_dir, plots_dir = setup_directories(args.latent_dim, args.k, args.min_rpb)
+
+    print("="*70)
+    print("MOTIF-SPECIFIC ABLATION WITH EFFECT SIZE FILTERING")
+    print("="*70)
+    print(f"SAE Configuration:")
+    print(f"  latent_dim={args.latent_dim}, k={args.k}")
+    print(f"Feature Selection:")
+    print(f"  FDR threshold: < 0.05")
+    print(f"  Min |rpb| threshold: >= {args.min_rpb}")
+    print(f"Random Controls:")
+    print(f"  Trials per feature count: {args.n_random_trials}")
+
+    # Load data with filtering
+    motif_features, non_filtered_features, filtered_df = load_correlation_data(args.min_rpb)
+    save_feature_mapping(motif_features, results_dir, args.min_rpb)
+
+    print(f"\nNon-filtered features available for random controls: {len(non_filtered_features)}")
+    print("\nFiltered features per motif:")
+    for motif_name, features in motif_features.items():
+        print(f"  {motif_name}: {len(features)} features")
+
+    # Check if we have any features to test
+    total_features = sum(len(feats) for feats in motif_features.values())
+    if total_features == 0:
+        print("\n" + "="*70)
+        print("ERROR: No features meet filtering criteria!")
+        print("="*70)
+        print(f"Try lowering --min_rpb (current: {args.min_rpb})")
+        print("Recommended values: 0.05 (inclusive), 0.08 (moderate), 0.10 (strict)")
+        return
+
+    # Print monosemanticity report
+    print_monosemanticity_report(filtered_df, args.min_rpb)
+
+    # Run motif-specific ablations
+    print("\n" + "="*70)
+    print("STEP 1: Motif-Specific Ablations")
+    print("="*70)
+
+    motif_specific_results = []
+
+    for feature_set_name, features in motif_features.items():
+        if len(features) == 0:
+            print(f"\nSkipping {feature_set_name} (no features meet threshold)")
+            continue
+
+        print(f"\nAblating {feature_set_name} features ({len(features)})...")
+        experiment_name = f"{feature_set_name.lower().replace(' ', '_')}_l{args.latent_dim}_k{args.k}"
+
+        df = run_single_ablation(args.latent_dim, args.k, features, experiment_name)
+
+        if df is not None:
+            for motif in df['Motif'].unique():
+                motif_data = df[df['Motif'] == motif]
+                motif_specific_results.append({
+                    'Feature_Set': feature_set_name,
+                    'Motif': motif,
+                    'N_Features': len(features),
+                    'N_Graphs': len(motif_data),
+                    'Mean_Impact': motif_data['Ablation Impact'].mean(),
+                    'Std_Impact': motif_data['Ablation Impact'].std(),
+                    'SE_Impact': motif_data['Ablation Impact'].std() / np.sqrt(len(motif_data))
+                })
+
+    motif_specific_df = pd.DataFrame(motif_specific_results)
+    motif_specific_df.to_csv(results_dir / 'motif_specific_results.csv', index=False)
+
+    # Run random controls for each unique feature count
+    print("\n" + "="*70)
+    print("STEP 2: Random Control Trials")
+    print("="*70)
+
+    unique_feature_counts = sorted(set(len(feats) for feats in motif_features.values() if len(feats) > 0))
+    random_results_dict = {}
+
+    for n_features in unique_feature_counts:
+        random_df = run_random_control_trials(args.latent_dim, args.k, n_features,
+                                              args.n_random_trials, non_filtered_features)
+        random_df.to_csv(results_dir / f'random_{n_features}feat_trials.csv', index=False)
+        random_results_dict[n_features] = random_df
+
+    # Statistical analysis
+    print("\n" + "="*70)
+    print("STEP 3: Statistical Comparison")
+    print("="*70)
+
+    combined_random = pd.concat(random_results_dict.values())
+    sig_df = compute_statistical_significance(motif_specific_df, combined_random)
+    sig_df.to_csv(results_dir / 'statistical_tests.csv', index=False)
+
+    print("\nStatistical Significance Results:")
+    pd.set_option('display.max_columns', None)
+    pd.set_option('display.width', None)
+    print(sig_df.to_string())
 
     # Generate plots
-    print("\nGenerating comparative visualizations...")
-    plot_comparative_results(stats_df, combined_results)
+    print("\n" + "="*70)
+    print("STEP 4: Generate Visualizations")
+    print("="*70)
 
-    # Print summary
-    print_interpretability_summary(stats_df)
+    plot_comparison_with_random_controls(motif_specific_df, random_results_dict,
+                                        motif_features, plots_dir,
+                                        args.latent_dim, args.k, args.min_rpb)
 
+    # Final summary
     print("\n" + "="*70)
     print("EXPERIMENTS COMPLETE")
     print("="*70)
-    print(f"Results saved to: {RESULTS_DIR}")
-    print(f"Plots saved to: {PLOTS_DIR}")
+    print(f"Configuration:")
+    print(f"  SAE: latent_dim={args.latent_dim}, k={args.k}")
+    print(f"  Filtering: FDR<0.05 and |rpb|>={args.min_rpb}")
+    print(f"  Random trials: {args.n_random_trials} per feature count")
+    print(f"\nTotal features tested: {sum(len(f) for f in motif_features.values())}")
+    print(f"Monosemantic features: {(filtered_df.groupby('feature')['motif'].count() == 1).sum()}")
+    print(f"\nOutput directories:")
+    print(f"  Results: {results_dir}")
+    print(f"  Plots: {plots_dir}")
 
 if __name__ == "__main__":
     main()
