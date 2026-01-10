@@ -58,7 +58,8 @@ class MeanMedianBaseline(nn.Module):
         for batch in train_loader:
             observed_mask = ~batch.mask
             observed_values = batch.y[observed_mask]
-            all_observed.extend(observed_values.cpu().numpy())
+            # Ensure we extract numpy array correctly, handling potential device placement
+            all_observed.extend(observed_values.detach().cpu().numpy())
 
         all_observed = np.array(all_observed)
 

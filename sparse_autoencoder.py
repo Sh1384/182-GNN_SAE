@@ -1,21 +1,32 @@
 """
-Sparse Autoencoder Module for GNN Activation Analysis
+Sparse Autoencoder Module for GNN Layer2 Activation Analysis
 
-Trains sparse autoencoders on frozen GNN layer activations to discover
-interpretable features that correlate with network motifs.
+Trains a sparse autoencoder on frozen GNN layer2 activations (64-dim) to discover
+interpretable features in an expanded 512-dimensional latent space (8x expansion).
+
+Architecture:
+    - Input: 64-dimensional GNN layer2 activations
+    - Latent: 512-dimensional sparse representation (TopK activation)
+    - Output: 64-dimensional reconstruction
+
+Sparsity:
+    - TopK activation: Only top K neurons are kept active per sample
+    - Rest are set to zero, enforcing exact sparsity
+
+Loss:
+    L = ||x - x_hat||_2^2  (reconstruction only, sparsity enforced by TopK)
 """
 
-import argparse
 import json
 import os
 from pathlib import Path
-from typing import Tuple, List, Optional
+from typing import Tuple, List, Optional, Dict
 
 import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from torch.utils.data import Dataset, DataLoader, TensorDataset
+from torch.utils.data import Dataset, DataLoader
 from tqdm import tqdm
 
 
@@ -23,41 +34,29 @@ class SparseAutoencoder(nn.Module):
     """
     Sparse Autoencoder for discovering interpretable features in GNN activations.
 
-    Architecture:
-        - Encoder: Linear(input_dim -> latent_dim) + ReLU
-        - Decoder: Linear(latent_dim -> input_dim)
-
-    Loss:
-        L = ||x - x_hat||_2^2 + lambda * Sparsity(z)
-        where Sparsity is either L1 or Tail-L1 (Top-K)
+    Expands 64-dim activations to 512-dim latent space with TopK sparsity.
+    Only the top K neurons are kept active, rest are set to zero.
     """
 
-    def __init__(self, input_dim: int = 64, latent_dim: int = 512,
-                 sparsity_lambda: float = 1e-3,
-                 sparsity_type: str = "l1",
-                 topk_ratio: float = 0.1):
+    def __init__(self, input_dim: int = 64, latent_dim: int = 512, k: int = 32):
         """
         Initialize the sparse autoencoder.
 
         Args:
-            input_dim: Dimension of input activations
-            latent_dim: Dimension of latent representation
-            sparsity_lambda: Sparsity penalty weight
-            sparsity_type: 'l1' or 'topk'
-            topk_ratio: Fraction of latent dims kept when using topk penalty
+            input_dim: Dimension of input activations (64 for layer2)
+            latent_dim: Dimension of latent representation (512)
+            k: Number of top activations to keep (rest set to zero)
         """
         super(SparseAutoencoder, self).__init__()
 
         self.input_dim = input_dim
         self.latent_dim = latent_dim
-        self.sparsity_lambda = sparsity_lambda
-        self.sparsity_type = sparsity_type.lower()
-        self.topk_ratio = max(0.0, min(1.0, topk_ratio))
+        self.k = k
 
-        # Encoder
+        # Encoder: 64 -> 512 with ReLU + TopK
         self.encoder = nn.Linear(input_dim, latent_dim)
 
-        # Decoder
+        # Decoder: 512 -> 64
         self.decoder = nn.Linear(latent_dim, input_dim)
 
         # Initialize weights
@@ -72,27 +71,39 @@ class SparseAutoencoder(nn.Module):
 
     def encode(self, x: torch.Tensor) -> torch.Tensor:
         """
-        Encode input to latent representation.
+        Encode input to latent representation with TopK sparsity.
 
         Args:
-            x: Input activations (batch_size, input_dim)
+            x: Input activations (batch_size, 64)
 
         Returns:
-            Latent representation (batch_size, latent_dim)
+            Latent representation (batch_size, 512) with only top-k active
         """
         z = self.encoder(x)
-        z = F.relu(z)
-        return z
+        z = F.relu(z)  # Enforce non-negativity for interpretability
+
+        # Apply TopK: keep only top k activations, set rest to zero
+        if self.k < self.latent_dim:
+            # Get top k values and indices for each sample
+            topk_values, topk_indices = torch.topk(z, self.k, dim=1)
+
+            # Create sparse tensor with only top k activations
+            z_sparse = torch.zeros_like(z)
+            z_sparse.scatter_(1, topk_indices, topk_values)
+
+            return z_sparse
+        else:
+            return z
 
     def decode(self, z: torch.Tensor) -> torch.Tensor:
         """
         Decode latent representation to reconstruction.
 
         Args:
-            z: Latent representation (batch_size, latent_dim)
+            z: Latent representation (batch_size, 512)
 
         Returns:
-            Reconstructed activations (batch_size, input_dim)
+            Reconstructed activations (batch_size, 64)
         """
         x_hat = self.decoder(z)
         return x_hat
@@ -102,7 +113,7 @@ class SparseAutoencoder(nn.Module):
         Forward pass through autoencoder.
 
         Args:
-            x: Input activations (batch_size, input_dim)
+            x: Input activations (batch_size, 64)
 
         Returns:
             Tuple of (reconstructed_x, latent_z)
@@ -111,80 +122,109 @@ class SparseAutoencoder(nn.Module):
         x_hat = self.decode(z)
         return x_hat, z
 
-    def _topk_sparsity(self, z: torch.Tensor) -> torch.Tensor:
-        """Compute sparsity penalty that penalizes activations outside top-k."""
-        if self.topk_ratio <= 0:
-            return torch.mean(torch.abs(z))
-
-        k = int(max(1, round(self.latent_dim * self.topk_ratio)))
-        k = min(k, self.latent_dim)
-
-        if k >= self.latent_dim:
-            return torch.zeros(1, device=z.device, dtype=z.dtype)
-
-        abs_z = torch.abs(z)
-        topk_vals, _ = torch.topk(abs_z, k, dim=1, largest=True, sorted=False)
-        tail_sum = abs_z.sum(dim=1) - topk_vals.sum(dim=1)
-        sparsity_loss = tail_sum / max(self.latent_dim - k, 1)
-        return sparsity_loss.mean()
-
-    def loss(self, x: torch.Tensor, x_hat: torch.Tensor,
-             z: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+    def compute_loss(self, x: torch.Tensor, x_hat: torch.Tensor,
+                     z: torch.Tensor) -> Tuple[torch.Tensor, Dict[str, float]]:
         """
-        Compute total loss with reconstruction and sparsity terms.
+        Compute SAE loss (reconstruction only, sparsity enforced by TopK).
 
         Args:
-            x: Original input
-            x_hat: Reconstructed input
+            x: Original activations
+            x_hat: Reconstructed activations
             z: Latent representation
 
         Returns:
-            Tuple of (total_loss, reconstruction_loss, sparsity_loss)
+            Tuple of (total_loss, loss_dict)
         """
-        # Reconstruction loss (MSE)
+        # Reconstruction loss (MSE) - only loss term with TopK
         recon_loss = F.mse_loss(x_hat, x)
 
-        # Sparsity loss
-        if self.sparsity_type == "topk":
-            sparsity_loss = self._topk_sparsity(z)
-        else:
-            sparsity_loss = torch.mean(torch.abs(z))
+        # Total loss is just reconstruction (sparsity handled by TopK)
+        total_loss = recon_loss
 
-        # Total loss
-        total_loss = recon_loss + self.sparsity_lambda * sparsity_loss
+        # Track sparsity metrics for monitoring
+        l0_sparsity = (z > 0).float().mean().item()  # Fraction of active neurons
+        l1_sparsity = torch.mean(torch.abs(z)).item()  # Average absolute activation
 
-        return total_loss, recon_loss, sparsity_loss
+        loss_dict = {
+            'total': total_loss.item(),
+            'reconstruction': recon_loss.item(),
+            'sparsity': l1_sparsity,  # For monitoring only
+            'l0_sparsity': l0_sparsity  # Should be approximately k/latent_dim
+        }
+
+        return total_loss, loss_dict
+
+
+class ActivationDataset(Dataset):
+    """
+    Dataset for loading GNN layer2 activations from saved .pt files.
+
+    Each graph's activations are stored as a tensor of shape [num_nodes, 64].
+    This dataset flattens all node activations across all graphs into individual samples.
+    """
+
+    def __init__(self, activation_dir: Path):
+        """
+        Initialize dataset by loading all activations from directory.
+
+        Args:
+            activation_dir: Directory containing graph_*.pt files
+        """
+        self.activation_files = sorted(activation_dir.glob("graph_*.pt"))
+
+        # Load all activations into memory
+        print(f"Loading activations from {activation_dir}...")
+        all_activations = []
+
+        for act_file in tqdm(self.activation_files, desc="Loading"):
+            activations = torch.load(act_file, weights_only=True)  # Shape: [num_nodes, 64]
+            all_activations.append(activations)
+
+        # Concatenate all node activations: [total_nodes, 64]
+        self.activations = torch.cat(all_activations, dim=0)
+
+        print(f"Loaded {len(self.activation_files)} graphs with {self.activations.shape[0]} total nodes")
+        print(f"Activation shape: {self.activations.shape}")
+
+    def __len__(self) -> int:
+        return self.activations.shape[0]
+
+    def __getitem__(self, idx: int) -> torch.Tensor:
+        return self.activations[idx]
 
 
 class SAETrainer:
     """
     Trainer for Sparse Autoencoder on GNN activations.
-
-    Handles loading activations, training, and saving latent features.
     """
 
     def __init__(self, model: SparseAutoencoder, device: str = 'cuda',
-                 learning_rate: float = 1e-3, seed: int = 42):
+                 learning_rate: float = 1e-3):
         """
-        Initialize the SAE trainer.
+        Initialize SAE trainer.
 
         Args:
             model: Sparse autoencoder model
             device: Device to train on
             learning_rate: Learning rate for optimizer
-            seed: Random seed
         """
         self.model = model.to(device)
         self.device = device
         self.optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
 
-        # Set random seeds
-        torch.manual_seed(seed)
-        np.random.seed(seed)
-        if torch.cuda.is_available():
-            torch.cuda.manual_seed(seed)
+        # Training history
+        self.history = {
+            'train_loss': [],
+            'train_recon': [],
+            'train_sparsity': [],
+            'train_l0': [],
+            'val_loss': [],
+            'val_recon': [],
+            'val_sparsity': [],
+            'val_l0': []
+        }
 
-    def train_epoch(self, train_loader: DataLoader) -> Tuple[float, float, float]:
+    def train_epoch(self, train_loader: DataLoader) -> Dict[str, float]:
         """
         Train for one epoch.
 
@@ -192,377 +232,283 @@ class SAETrainer:
             train_loader: DataLoader for training data
 
         Returns:
-            Tuple of (total_loss, recon_loss, sparsity_loss)
+            Dictionary of average losses
         """
         self.model.train()
-        total_loss_sum = 0.0
-        recon_loss_sum = 0.0
-        sparsity_loss_sum = 0.0
-        num_batches = 0
 
-        for batch in train_loader:
-            x = batch[0].to(self.device)
+        epoch_losses = {
+            'total': [],
+            'reconstruction': [],
+            'sparsity': [],
+            'l0_sparsity': []
+        }
+
+        for batch in tqdm(train_loader, desc="Training", leave=False):
+            batch = batch.to(self.device)
 
             self.optimizer.zero_grad()
 
             # Forward pass
-            x_hat, z = self.model(x)
+            x_hat, z = self.model(batch)
 
             # Compute loss
-            total_loss, recon_loss, sparsity_loss = self.model.loss(x, x_hat, z)
+            loss, loss_dict = self.model.compute_loss(batch, x_hat, z)
 
             # Backward pass
-            total_loss.backward()
+            loss.backward()
             self.optimizer.step()
 
-            total_loss_sum += total_loss.item()
-            recon_loss_sum += recon_loss.item()
-            sparsity_loss_sum += sparsity_loss.item()
-            num_batches += 1
+            # Track losses
+            for key in epoch_losses:
+                epoch_losses[key].append(loss_dict[key])
 
-        return (total_loss_sum / num_batches,
-                recon_loss_sum / num_batches,
-                sparsity_loss_sum / num_batches)
+        # Return average losses
+        return {key: np.mean(values) for key, values in epoch_losses.items()}
 
-    def validate(self, val_loader: DataLoader) -> Tuple[float, float, float]:
+    def evaluate(self, val_loader: DataLoader) -> Dict[str, float]:
         """
-        Validate the model.
+        Evaluate on validation/test data.
 
         Args:
             val_loader: DataLoader for validation data
 
         Returns:
-            Tuple of (total_loss, recon_loss, sparsity_loss)
+            Dictionary of average losses
         """
         self.model.eval()
-        total_loss_sum = 0.0
-        recon_loss_sum = 0.0
-        sparsity_loss_sum = 0.0
-        num_batches = 0
+
+        epoch_losses = {
+            'total': [],
+            'reconstruction': [],
+            'sparsity': [],
+            'l0_sparsity': []
+        }
 
         with torch.no_grad():
-            for batch in val_loader:
-                x = batch[0].to(self.device)
+            for batch in tqdm(val_loader, desc="Evaluating", leave=False):
+                batch = batch.to(self.device)
 
                 # Forward pass
-                x_hat, z = self.model(x)
+                x_hat, z = self.model(batch)
 
                 # Compute loss
-                total_loss, recon_loss, sparsity_loss = self.model.loss(x, x_hat, z)
+                _, loss_dict = self.model.compute_loss(batch, x_hat, z)
 
-                total_loss_sum += total_loss.item()
-                recon_loss_sum += recon_loss.item()
-                sparsity_loss_sum += sparsity_loss.item()
-                num_batches += 1
+                # Track losses
+                for key in epoch_losses:
+                    epoch_losses[key].append(loss_dict[key])
 
-        return (total_loss_sum / num_batches,
-                recon_loss_sum / num_batches,
-                sparsity_loss_sum / num_batches)
+        # Return average losses
+        return {key: np.mean(values) for key, values in epoch_losses.items()}
 
     def save_model(self, path: str):
-        """
-        Save model weights.
-
-        Args:
-            path: Path to save model
-        """
+        """Save model checkpoint."""
         Path(path).parent.mkdir(parents=True, exist_ok=True)
         torch.save({
             'model_state_dict': self.model.state_dict(),
-            'input_dim': self.model.input_dim,
-            'latent_dim': self.model.latent_dim,
-            'sparsity_lambda': self.model.sparsity_lambda,
-            'sparsity_type': self.model.sparsity_type,
-            'topk_ratio': self.model.topk_ratio
+            'optimizer_state_dict': self.optimizer.state_dict(),
+            'history': self.history
         }, path)
         print(f"Model saved to {path}")
 
     def load_model(self, path: str):
-        """
-        Load model weights.
-
-        Args:
-            path: Path to load model from
-        """
-        checkpoint = torch.load(path, map_location=self.device)
+        """Load model checkpoint."""
+        checkpoint = torch.load(path, weights_only=False)
         self.model.load_state_dict(checkpoint['model_state_dict'])
+        self.optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
+        self.history = checkpoint['history']
         print(f"Model loaded from {path}")
 
-    def extract_and_save_latents(self, data_loader: DataLoader,
-                                 output_dir: str, split_name: str):
-        """
-        Extract and save latent representations.
 
-        Args:
-            data_loader: DataLoader for activations
-            output_dir: Output directory
-            split_name: Name of data split
-        """
-        self.model.eval()
-
-        output_path = Path(output_dir) / split_name
-        output_path.mkdir(parents=True, exist_ok=True)
-
-        all_latents = []
-
-        with torch.no_grad():
-            for batch in tqdm(data_loader, desc=f"Extracting {split_name} latents"):
-                x = batch[0].to(self.device)
-                z = self.model.encode(x)
-                all_latents.append(z.cpu())
-
-        # Concatenate and save
-        all_latents = torch.cat(all_latents, dim=0)
-
-        # Save as individual node latents
-        for i in range(len(all_latents)):
-            save_path = output_path / f"node_{i}.pt"
-            torch.save(all_latents[i], save_path)
-
-        # Also save concatenated version
-        torch.save(all_latents, output_path / "all_latents.pt")
-
-        print(f"Saved {len(all_latents)} latent representations to {output_dir}/{split_name}/")
+def save_json(data: Dict, path: str):
+    """Save dictionary to JSON file."""
+    Path(path).parent.mkdir(parents=True, exist_ok=True)
+    with open(path, 'w') as f:
+        json.dump(data, f, indent=2)
 
 
-def load_activations(activation_dir: Path, split_name: str) -> torch.Tensor:
+def _run_single_config(
+    train_dataset: ActivationDataset,
+    val_dataset: ActivationDataset,
+    test_dataset: ActivationDataset,
+    input_dim: int,
+    latent_dim: int,
+    k: int,
+    device: str,
+    batch_size: int,
+    num_epochs: int,
+    learning_rate: float,
+    seed: int,
+) -> None:
     """
-    Load all activations from a directory and concatenate.
+    Train and evaluate a single SAE configuration and save results.
 
-    Args:
-        activation_dir: Directory containing activation files
-        split_name: Name of data split (train/val/test)
-
-    Returns:
-        Tensor of all activations (num_nodes, activation_dim)
+    Saves checkpoints to checkpoints/sae_latent{latent_dim}_k{k}.pt and
+    metrics to outputs/sae_metrics_latent{latent_dim}_k{k}.json.
     """
-    activation_path = activation_dir / split_name
-    if not activation_path.exists():
-        raise ValueError(f"Activation directory not found: {activation_path}")
+    torch.manual_seed(seed)
+    np.random.seed(seed)
+    if torch.cuda.is_available():
+        torch.cuda.manual_seed(seed)
 
-    activation_files = sorted(activation_path.glob("graph_*.pt"))
-
-    if len(activation_files) == 0:
-        raise ValueError(f"No activation files found in {activation_path}")
-
-    all_activations = []
-
-    for act_file in activation_files:
-        act = torch.load(act_file, map_location='cpu')
-        # Handle both single graph and batched cases
-        if act.dim() == 1:
-            act = act.unsqueeze(0)
-        all_activations.append(act)
-
-    # Concatenate all activations
-    activations = torch.cat(all_activations, dim=0)
-
-    return activations
-
-
-def train_sae_for_layer(layer_name: str, layer_idx: int,
-                        input_dim: int = 64,
-                        latent_dim: int = 512,
-                        sparsity_lambda: float = 1e-3,
-                        sparsity_type: str = "l1",
-                        topk_ratio: float = 0.1,
-                        num_epochs: int = 100,
-                        batch_size: int = 256,
-                        learning_rate: float = 1e-3,
-                        device: str = 'cuda',
-                        seed: int = 42):
-    """
-    Train a sparse autoencoder for a specific GNN layer.
-
-    Args:
-        layer_name: Name of layer (e.g., 'layer1', 'layer2')
-        layer_idx: Index of layer (1 or 2)
-        input_dim: Dimension of layer activations
-        latent_dim: Dimension of latent space
-        sparsity_lambda: Sparsity penalty weight
-        num_epochs: Number of training epochs
-        batch_size: Batch size for training
-        learning_rate: Learning rate
-        device: Device to train on
-        seed: Random seed
-    """
-    print(f"\n{'='*60}")
-    print(f"Training SAE for {layer_name} (dim={input_dim} -> {latent_dim}) [{sparsity_type}]")
-    print(f"{'='*60}")
-
-    # Load activations
-    activation_dir = Path("outputs/activations") / layer_name
-
-    print(f"Loading activations from {activation_dir}...")
-    train_activations = load_activations(activation_dir, "train")
-    val_activations = load_activations(activation_dir, "val")
-    test_activations = load_activations(activation_dir, "test")
-
-    print(f"Train activations: {train_activations.shape}")
-    print(f"Val activations: {val_activations.shape}")
-    print(f"Test activations: {test_activations.shape}")
-
-    # Create datasets and loaders
-    train_dataset = TensorDataset(train_activations)
-    val_dataset = TensorDataset(val_activations)
-    test_dataset = TensorDataset(test_activations)
+    print("=" * 60)
+    print(f"Sparse Autoencoder Training (latent_dim={latent_dim}, k={k})")
+    print("=" * 60)
+    print(f"Device: {device}")
+    print(f"Architecture: {input_dim} -> {latent_dim} -> {input_dim}")
+    print(f"Sparsity method: TopK (k={k}, {100*k/latent_dim:.1f}% active)")
+    print(f"Batch size: {batch_size}")
+    print(f"Epochs: {num_epochs}")
+    print()
 
     train_loader = DataLoader(train_dataset, batch_size=batch_size,
-                             shuffle=True, drop_last=True)
+                              shuffle=True, num_workers=4)
     val_loader = DataLoader(val_dataset, batch_size=batch_size,
-                           shuffle=False)
+                            shuffle=False, num_workers=4)
     test_loader = DataLoader(test_dataset, batch_size=batch_size,
-                            shuffle=False)
+                             shuffle=False, num_workers=4)
 
-    # Initialize model and trainer
-    model = SparseAutoencoder(input_dim=input_dim,
-                              latent_dim=latent_dim,
-                              sparsity_lambda=sparsity_lambda,
-                              sparsity_type=sparsity_type,
-                              topk_ratio=topk_ratio)
-    trainer = SAETrainer(model, device=device,
-                        learning_rate=learning_rate, seed=seed)
+    model = SparseAutoencoder(
+        input_dim=input_dim,
+        latent_dim=latent_dim,
+        k=k
+    )
+    trainer = SAETrainer(model, device=device, learning_rate=learning_rate)
 
-    # Training loop
-    print(f"\nTraining SAE for {layer_name}...")
     best_val_loss = float('inf')
     patience = 15
     patience_counter = 0
 
-    for epoch in tqdm(range(num_epochs), desc=f"Training {layer_name}"):
-        train_loss, train_recon, train_sparsity = trainer.train_epoch(train_loader)
-        val_loss, val_recon, val_sparsity = trainer.validate(val_loader)
+    ckpt_path = f"checkpoints/sae_latent{latent_dim}_k{k}.pt"
 
-        if (epoch + 1) % 10 == 0:
-            print(f"Epoch {epoch+1}/{num_epochs}")
-            print(f"  Train - Total: {train_loss:.4f}, Recon: {train_recon:.4f}, Sparsity: {train_sparsity:.4f}")
-            print(f"  Val   - Total: {val_loss:.4f}, Recon: {val_recon:.4f}, Sparsity: {val_sparsity:.4f}")
+    print("Training Sparse Autoencoder...")
+    print("-" * 60)
 
-        # Early stopping based on validation loss
-        if val_loss < best_val_loss:
-            best_val_loss = val_loss
+    for epoch in range(num_epochs):
+        train_metrics = trainer.train_epoch(train_loader)
+        val_metrics = trainer.evaluate(val_loader)
+
+        trainer.history['train_loss'].append(train_metrics['total'])
+        trainer.history['train_recon'].append(train_metrics['reconstruction'])
+        trainer.history['train_sparsity'].append(train_metrics['sparsity'])
+        trainer.history['train_l0'].append(train_metrics['l0_sparsity'])
+
+        trainer.history['val_loss'].append(val_metrics['total'])
+        trainer.history['val_recon'].append(val_metrics['reconstruction'])
+        trainer.history['val_sparsity'].append(val_metrics['sparsity'])
+        trainer.history['val_l0'].append(val_metrics['l0_sparsity'])
+
+        if (epoch + 1) % 5 == 0 or epoch == 0:
+            print(f"[latent={latent_dim}, k={k}] Epoch {epoch+1}/{num_epochs}")
+            print(f"  Train - Loss: {train_metrics['total']:.6f}, "
+                  f"Recon: {train_metrics['reconstruction']:.6f}, "
+                  f"L0: {train_metrics['l0_sparsity']:.3f}")
+            print(f"  Val   - Loss: {val_metrics['total']:.6f}, "
+                  f"Recon: {val_metrics['reconstruction']:.6f}, "
+                  f"L0: {val_metrics['l0_sparsity']:.3f}")
+
+        if val_metrics['total'] < best_val_loss:
+            best_val_loss = val_metrics['total']
             patience_counter = 0
-            trainer.save_model(f"checkpoints/sae_{layer_name}.pt")
+            trainer.save_model(ckpt_path)
         else:
             patience_counter += 1
             if patience_counter >= patience:
-                print(f"Early stopping at epoch {epoch+1}")
+                print(f"\nEarly stopping at epoch {epoch+1}")
                 break
 
-    # Evaluate on test set
-    print(f"\nEvaluating {layer_name} on test set...")
-    test_loss, test_recon, test_sparsity = trainer.validate(test_loader)
-    print(f"Test - Total: {test_loss:.4f}, Recon: {test_recon:.4f}, Sparsity: {test_sparsity:.4f}")
+    print("\nTraining complete!")
+    print(f"Best validation loss (latent={latent_dim}, k={k}): {best_val_loss:.6f}")
 
-    # Extract and save latent features
-    print(f"\nExtracting latent features for {layer_name}...")
-    output_dir = f"outputs/sae_latents/{layer_name}"
+    # Evaluate best checkpoint on test set
+    trainer.load_model(ckpt_path)
+    test_metrics = trainer.evaluate(test_loader)
 
-    trainer.extract_and_save_latents(train_loader, output_dir, "train")
-    trainer.extract_and_save_latents(val_loader, output_dir, "val")
-    trainer.extract_and_save_latents(test_loader, output_dir, "test")
+    print(f"Test Loss: {test_metrics['total']:.6f}")
+    print(f"Test Reconstruction: {test_metrics['reconstruction']:.6f}")
+    print(f"Test L0 Sparsity: {test_metrics['l0_sparsity']:.3f}")
 
-    print(f"\n{layer_name} training complete!")
-
-
-def _load_best_params(model_type: str = 'gcn') -> dict:
-    """
-    Load best hyperparameters from hyperparameter sweep.
-
-    Args:
-        model_type: Type of GNN model ('gcn' or 'gat')
-
-    Returns:
-        Dictionary of best hyperparameters
-    """
-    if model_type.lower() == 'gat':
-        params_path = Path("outputs/hyperparameter_sweep_gat/best_params.json")
-    else:
-        params_path = Path("outputs/hyperparameter_sweep_gcn/best_params.json")
-
-    if not params_path.exists():
-        print(f"Warning: Best params not found at {params_path}")
-        print(f"Using default hidden_dim=64 for layer1, 1 for layer2")
-        return {"hidden_dim": 64}
-
-    with open(params_path, 'r') as f:
-        best_params = json.load(f)
-
-    return best_params
+    metrics_path = f"outputs/sae_metrics_latent{latent_dim}_k{k}.json"
+    final_metrics = {
+        'best_val_loss': float(best_val_loss),
+        'test_loss': float(test_metrics['total']),
+        'test_reconstruction': float(test_metrics['reconstruction']),
+        'test_sparsity': float(test_metrics['sparsity']),
+        'test_l0_sparsity': float(test_metrics['l0_sparsity']),
+        'train_history': trainer.history,
+        'config': {
+            'input_dim': input_dim,
+            'latent_dim': latent_dim,
+            'k': k,
+            'sparsity_method': 'topk',
+            'target_sparsity': k / latent_dim,
+            'learning_rate': learning_rate,
+            'batch_size': batch_size,
+            'seed': seed
+        }
+    }
+    save_json(final_metrics, metrics_path)
+    print(f"Metrics saved to {metrics_path}")
+    print("=" * 60)
 
 
 def main():
-    """Main training pipeline for SAEs."""
-    parser = argparse.ArgumentParser(description="Train Sparse Autoencoders on GNN activations.")
-    parser.add_argument("--model_type", type=str, default="gcn",
-                        choices=["gcn", "gat"],
-                        help="Type of GNN model to use for SAE training.")
-    parser.add_argument("--sparsity_type", type=str, default="l1",
-                        choices=["l1", "topk", "L1", "TOPK"],
-                        help="Type of sparsity regularization to use.")
-    parser.add_argument("--topk_ratio", type=float, default=0.1,
-                        help="Fraction of latent dimensions kept when using top-k sparsity.")
-    parser.add_argument("--epochs", type=int, default=100, help="Number of training epochs.")
-    parser.add_argument("--batch_size", type=int, default=256, help="Batch size for SAE training.")
-    parser.add_argument("--learning_rate", type=float, default=1e-3, help="Learning rate.")
-    parser.add_argument("--sparsity_lambda", type=float, default=1e-3, help="Sparsity weight lambda.")
-    args = parser.parse_args()
-
+    """Main training pipeline for SAE with (latent_dim, k) sweep."""
     SEED = 42
     DEVICE = 'cuda' if torch.cuda.is_available() else 'cpu'
+    BATCH_SIZE = 1024
+    NUM_EPOCHS = 200  # Increased from 100
+    LEARNING_RATE = 5e-4
 
-    sparsity_type = args.sparsity_type.lower()
-    print(f"Using device: {DEVICE}")
-    print(f"Sparsity config -> type: {sparsity_type}, topk_ratio: {args.topk_ratio}")
-    print(f"Training SAE for {args.model_type.upper()} model")
+    INPUT_DIM = 64
 
-    # Load best hyperparameters for the model
-    best_params = _load_best_params(args.model_type)
-    layer1_input_dim = int(best_params.get('hidden_dim', 64))
+    latent_dims = [128, 256, 512]
+    k_values = [4, 8, 16, 32]
 
-    print(f"\nLoaded best hyperparameters:")
-    print(f"  Layer 1 input_dim (hidden_dim): {layer1_input_dim}")
+    print("=" * 60)
+    print("Sparse Autoencoder Training for GNN Layer2 Activations")
+    print("=" * 60)
+    print(f"Device: {DEVICE}")
+    print(f"Latent dims to sweep: {latent_dims}")
+    print(f"k values to sweep: {k_values}")
+    print()
 
-    # Check if activations exist
-    if not Path("outputs/activations").exists():
-        print("Error: No activations found. Please run gnn_train.py first.")
+    print("Loading activation datasets...")
+    train_dir = Path("outputs/activations/layer2_new/train")
+    val_dir = Path("outputs/activations/layer2_new/val")
+    test_dir = Path("outputs/activations/layer2_new/test")
+
+    if not train_dir.exists():
+        print(f"Error: {train_dir} not found. Please run gnn_train.py first.")
         return
 
-    # Train SAE for Layer 1 (hidden_dim-dim activations from best GNN model)
-    train_sae_for_layer(
-        layer_name="layer1",
-        layer_idx=1,
-        input_dim=layer1_input_dim,
-        latent_dim=512,
-        sparsity_lambda=args.sparsity_lambda,
-        sparsity_type=sparsity_type,
-        topk_ratio=args.topk_ratio,
-        num_epochs=args.epochs,
-        batch_size=args.batch_size,
-        learning_rate=args.learning_rate,
-        device=DEVICE,
-        seed=SEED
-    )
+    train_dataset = ActivationDataset(train_dir)
+    val_dataset = ActivationDataset(val_dir)
+    test_dataset = ActivationDataset(test_dir)
 
-    # Train SAE for Layer 2 (1-dim activations -> use smaller latent dim)
-    train_sae_for_layer(
-        layer_name="layer2",
-        layer_idx=2,
-        input_dim=1,
-        latent_dim=32,  # Smaller latent dim for 1-d input
-        sparsity_lambda=args.sparsity_lambda,
-        sparsity_type=sparsity_type,
-        topk_ratio=args.topk_ratio,
-        num_epochs=args.epochs,
-        batch_size=args.batch_size,
-        learning_rate=args.learning_rate,
-        device=DEVICE,
-        seed=SEED + 1
-    )
+    print(f"\nDataset sizes:")
+    print(f"  Train: {len(train_dataset)} node activations")
+    print(f"  Val: {len(val_dataset)} node activations")
+    print(f"  Test: {len(test_dataset)} node activations")
+    print()
 
-    print("\n" + "="*60)
-    print("All SAE training complete!")
-    print("="*60)
+    for latent_dim in latent_dims:
+        for k in k_values:
+            if k > latent_dim:
+                continue
+            _run_single_config(
+                train_dataset=train_dataset,
+                val_dataset=val_dataset,
+                test_dataset=test_dataset,
+                input_dim=INPUT_DIM,
+                latent_dim=latent_dim,
+                k=k,
+                device=DEVICE,
+                batch_size=BATCH_SIZE,
+                num_epochs=NUM_EPOCHS,
+                learning_rate=LEARNING_RATE,
+                seed=SEED,
+            )
 
 
 if __name__ == "__main__":

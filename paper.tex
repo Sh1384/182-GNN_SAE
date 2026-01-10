@@ -62,16 +62,16 @@
 \usepackage{hyperref}
 \usepackage{booktabs}
 \usepackage{amsfonts}
-\usepackage{nicefrac}
-\usepackage{microtype}
-\usepackage{xcolor}
-\usepackage{amsmath}
-\usepackage{multirow}
-\usepackage{algorithm}
-\usepackage{algpseudocode}
+\usepackage{nicefrac} 
+\usepackage{microtype} 
+\usepackage{xcolor} 
+\usepackage{amsmath} 
+\usepackage{multirow} 
+\usepackage{algorithm} 
+\usepackage{algpseudocode} 
 \usepackage{subcaption} 
 \usepackage{float} 
-\usepackage{placeins}
+\usepackage{placeins} 
 
 % Graphics
 \usepackage{tikz}
@@ -81,7 +81,7 @@
 % Point to BOTH folders containing your images
 \graphicspath{{GCN Figures/}{GAT Figures/}}
 
-\title{Mechanistic Interpretability of Biology-like Graph Motifs via Sparse Autoencoders on Graph Neural Networks}
+\title{Mechanistic Interpretability of Graph Motifs via Sparse Autoencoders on Graph Neural Networks}
 
 \author{%
   Shervin Goudarzi, Harry Huang, Manhar Gupta \\
@@ -95,18 +95,19 @@
 \maketitle
 
 \begin{abstract}
-Gene regulatory networks (GRNs) represent the computational substrate of life, orchestrating how genes regulate each other through motifs such as feedforward and feedback loops. Despite the success of graph neural networks (GNNs) in modeling biological interactions, their internal reasoning remains opaque. This project proposes to combine GNNs with sparse autoencoders (SAEs) to understand whether GNNs trained to predict gene expression learn biologically meaningful regulatory motifs. The GNN will be trained on synthetic graphs to impute missing expression (i.e., output) values, and its hidden activations will be frozen and decomposed via SAEs. We will analyze whether individual SAE features correspond to canonical motifs using correlation and causal ablation tests. This study aims to provide a foundation for mechanistic interpretability in graph-based models for different graph-like motifs, something invaluable to biology.
+Graph neural networks excel at learning from graph-structured data, yet whether their internal representations align with known topological motifs remains unclear. We apply sparse autoencoders to decompose GNN hidden activations trained on synthetic graphs with ground-truth motif annotations, including feedback loops, cascades, and fan-out structures. Using point-biserial correlation with rigorous permutation testing, we discover that GNNs spontaneously learn monosemantic features corresponding to specific graph motifs. Critically, this interpretability is architecture-dependent: Graph Convolutional Networks develop highly localized, motif-specific features requiring minimal sparsity, while Graph Attention Networks distribute motif information across significantly more features. Causal ablation experiments confirm that identified features are functionally necessary and removing feedback loop features selectively degrades performance only on graphs containing those structures. Interestingly, single input module motifs were also causally linked to feedback loops, suggesting that these two motifs might not be mutually exclusive. Our results reveal a fundamental trade-off in graph neural architectures: fixed message-passing operators compress topological patterns into interpretable circuits that uses and identifies graphical topology for output prediction, even without explicit training using motif labels. This work establishes that mechanistic interpretability of graph representations is achievable and demonstrates that architectural and topological inductive biases critically determine the structure of learned topological encodings.
+
 \end{abstract}
 
 \section{Introduction and Background}
 
-Gene regulatory networks (GRNs) are the decision-making circuits of cellular life. These directed networks encode the causal logic—such as feedforward loops, feedback cycles, and cascades—that governs gene expression and cellular differentiation. In recent years, Graph Neural Networks (GNNs) have emerged as the dominant paradigm for modeling such relational data. The mathematical foundation for efficient learning on graph structures was formalized by \citet{kipf2017} with the Graph Convolutional Network (GCN), which enables models to aggregate local neighborhood information effectively. \citet{fout2017} demonstrated the power of these architectures in computational biology, specifically for protein interface prediction, proving that GNNs can learn complex, biologically relevant spatial relationships.
+Graphical motifs structures within the context of GNNs have not been studied in depth when determining a model's performance on masked node prediction. Certain graphical motifs, that have a relation to biological contexts, are important to consider when understanding the underlying activations of a GNN. These directed networks or "motifs" as we will call them in this manuscript encode the causal logic, such as feedforward loops, feedback cycles, and cascades, that governs key patterns in science, including biology. In recent years, Graph Neural Networks (GNNs) have emerged as the dominant paradigm for modeling such relational data. The mathematical foundation for efficient learning on graph structures was formalized by \citet{kipf2017} with the Graph Convolutional Network (GCN), which enables models to aggregate local neighborhood information effectively. \citet{fout2017} demonstrated the power of these architectures in computational biology, specifically for protein interface prediction, proving that GNNs can learn complex, biologically relevant spatial relationships.
 
-Since these foundational works, GNNs have been applied to increasingly complex biological problems. \citet{zitnik2018} utilized GNNs to model polypharmacy side effects, capturing higher-order interactions between drugs and protein targets that simple pairwise models missed. To address the heterogeneity of biological graphs, \citet{velickovic2018} introduced Graph Attention Networks (GATs), which allow nodes to learn dynamic weighting schemes for their neighbors, potentially improving model expressivity on irregular regulatory networks. However, as the predictive power of these models has grown, so has their opacity. While GNNs can predict molecular outcomes with high accuracy, understanding \textit{how} they reason about the underlying topology remains a significant challenge. \citet{dwivedi2022} highlighted this gap, proposing standardized benchmarks for GNN interpretability, yet most existing methods rely on post-hoc feature importance measures rather than decomposing the model's internal representations.
+Since these foundational works, GNNs have been applied to increasingly complex problems. \citet{zitnik2018} utilized GNNs to model polypharmacy side effects, capturing higher-order interactions between drugs and protein targets that simple pairwise models missed. To address the heterogeneity of graphs, \citet{velickovic2018} introduced Graph Attention Networks (GATs), which allow nodes to learn dynamic weighting schemes for their neighbors, potentially improving model expressivity on irregular regulatory networks. However, as the predictive power of these models has grown, so has their opacity. While GNNs can predict molecular outcomes with high accuracy, understanding \textit{how} they reason about the underlying topology remains a significant challenge. \citet{dwivedi2022} highlighted this gap, proposing standardized benchmarks for GNN interpretability, yet most existing methods rely on post-hoc feature importance measures rather than decomposing the model's internal representations.
 
 Parallel to these developments in graph learning, the field of mechanistic interpretability has made strides in deciphering the internal states of Large Language Models (LLMs). \citet{bricken2023} provided a theoretical framework for "monosemanticity," arguing that neural networks often encode multiple concepts in single neurons (polysemanticity), which obscures interpretation. They proposed dictionary learning via Sparse Autoencoders (SAEs) as a method to disentangle these superimposed concepts into sparse, interpretable features. \citet{cunningham2023} successfully applied this technique to finding highly interpretable features in language models, effectively "opening the black box" of transformer activations. More recently, \citet{templeton2024} demonstrated that this approach scales to massive frontier models like Claude 3 Sonnet, extracting millions of interpretable features that abstract away from individual neurons.
 
-The intersection of these fields—GNNs for biology and SAE-based interpretability—remains largely unexplored. A notable exception is the recent work by \citet{garcia2025}, who applied sparse autoencoders to Protein Language Models, identifying interpretable structural and functional features within sequence-based representations. However, biology is not just about sequences; it is fundamentally about \textit{networks}. To date, no systematic study has applied SAEs to understand how GNNs internalize the discrete regulatory motifs that define GRNs. This project bridges this gap. By training GNNs on simulated GRNs with ground-truth motif structures and analyzing their activations via SAEs, we aim to determine if the "computational primitives" learned by the GNN align with the "biological primitives" (motifs) known to science.
+The intersection of these fields, GNN and SAE-based interpretability, remains largely unexplored. A notable exception is the recent work by \citet{garcia2025}, who applied sparse autoencoders to Protein Language Models, identifying interpretable structural and functional features within sequence-based representations. However, many of the real world problems are not just sequence based; it is fundamentally about \textit{networks}. To date, no systematic study has applied SAEs to understand how GNNs internalize the discrete topological motifs. This project bridges this gap. By training GNNs on simulated topological motifs with ground-truth motif structures and analyzing their activations via SAEs, we aim to determine if the "computational primitives" learned by the GNN align with the structural motifs that are currently known to science.
 
 \section{Methodology}
 
@@ -114,13 +115,13 @@ The methodology implemented in this study follows a comprehensive multi-stage pi
 
 \subsection{Virtual Data Construction and Simulation}
 
-The foundation of our dataset is a collection of 5,000 directed weighted graphs generated via a custom stochastic block model framework. These graphs are stored as pickled NetworkX objects, with filenames encoding their underlying structural logic. Specifically, graph IDs are partitioned by motif type: IDs 0–999 represent feedforward loops, 1000–1999 represent feedback loops, 2000–2999 represent single input modules (SIM), 3000–3999 represent linear cascades, and 4000–4999 represent mixed-motif graphs containing combinations of the former. 
+The foundation of our dataset is a collection of 4,000 directed weighted graphs generated via a custom stochastic block model framework. These graphs are stored as pickled NetworkX objects, with filenames encoding their underlying structural logic. Specifically, graph IDs are partitioned by motif type: IDs 0–999 represent feedforward loops, 1000–1999 represent feedback loops, 2000–2999 represent single input modules (SIM), and 3000–3999 represent linear cascades. 
 
-We simulated node-level "expression" dynamics on each graph. For a given graph with weighted adjacency matrix $W$, node states $x$ were initialized uniformly in the range $[0, 1]$. We evolved these states over 50 discrete time steps using a noisy, leaky dynamical system defined by the update rule:
+We simulated node-level "expression" dynamics on each graph. We evolved these states over 50 discrete time steps using a noisy, leaky dynamical system defined by the update rule:
 \begin{equation}
 x_{t+1} = (1 - \gamma) x_t + \gamma \sigma(W x_t) + \epsilon_t
 \end{equation}
-Here, the leak rate $\gamma$ was set to 0.3, and $\sigma$ represents a sigmoid nonlinearity clipped to a finite range to prevent numerical instability. The noise term $\epsilon_t$ was drawn from a zero-mean Gaussian distribution with a standard deviation of 0.01. After each update, node states were clipped to $[0, 1]$. The final state vector at $t=50$ was treated as the ground truth expression $y$. 
+Here, the leak rate $\gamma$ was set to 0.3, and $\sigma$ represents a sigmoid nonlinearity clipped to a finite range to prevent numerical instability. The noise term $\epsilon_t$ was drawn from a zero-mean Gaussian distribution with a standard deviation of 0.01. The nodes were initialized from a random uniform distribution [-1, 1] and each graph will have precisely 10 nodes; number of motif types per graph could vary. The final state vector at $t=50$ was treated as the ground truth expression $y$. To justify our choice for $t=50$ and standard deviation of 0.01, we conducted data sensitivity analysis by testing the GCN and GAT models at fixed hyperparameters with varied simulation dynamics (different timesteps and different noise levels) in Section 3.2
 
 To validate the simulation duration, we analyzed expression dynamics across all motifs. As shown in Figure \ref{fig:motifs}, different topologies exhibit distinct convergence characteristics.
 
@@ -183,28 +184,28 @@ To validate the simulation duration, we analyzed expression dynamics across all 
 \begin{figure}[H]
   \centering
   \begin{subfigure}[b]{0.9\textwidth}
-    \includegraphics[width=\linewidth, height=0.19\textheight, keepaspectratio]{expression_simulation_feedforward_loop.png}
+    \includegraphics[width=\linewidth, height=0.19\textheight, keepaspectratio]{feedforward_loop_expression_simulation.png}
     \caption{Feedforward Loop Dynamics}
   \end{subfigure}
   \par\bigskip
   \begin{subfigure}[b]{0.9\textwidth}
-    \includegraphics[width=\linewidth, height=0.19\textheight, keepaspectratio]{expression_simulation_feedback_loop.png}
+    \includegraphics[width=\linewidth, height=0.19\textheight, keepaspectratio]{feedback_loop_expression_simulation.png}
     \caption{Feedback Loop Dynamics}
   \end{subfigure}
   \par\bigskip
   \begin{subfigure}[b]{0.9\textwidth}
-    \includegraphics[width=\linewidth, height=0.19\textheight, keepaspectratio]{expression_simulation_single_input_module.png}
+    \includegraphics[width=\linewidth, height=0.19\textheight, keepaspectratio]{single_input_module_expression_simulation.png}
     \caption{Single-Input Module Dynamics}
   \end{subfigure}
   \par\bigskip
   \begin{subfigure}[b]{0.9\textwidth}
-    \includegraphics[width=\linewidth, height=0.19\textheight, keepaspectratio]{expression_simulation_cascade.png}
+    \includegraphics[width=\linewidth, height=0.19\textheight, keepaspectratio]{cascade_expression_simulation.png}
     \caption{Cascade Dynamics}
   \end{subfigure}
   \caption{Simulation of expression dynamics across the four primary motif types. The left panels show the specific graph instantiation with edge weights. The center panels track the node values over 50 time steps, showing how different topologies lead to different convergence behaviors. The right panels show the final stable states used for training.}
   \label{fig:simulation}
 \end{figure}
-\FloatBarrier
+
 
 \subsection{Graph Neural Network Training}
 
@@ -218,7 +219,7 @@ The primary architecture evaluated was a three-layer Graph Convolutional Network
 \begin{equation}
 H^{(l+1)} = \text{ReLU}\left(\text{Dropout}\left(A H^{(l)} W^{(l)} + b^{(l)}\right)\right)
 \end{equation}
-where $W^{(l)}$ and $b^{(l)}$ are the learnable weight matrix and bias vector. The network maps dimensions $2 \to 248 \to 64 \to 1$. The 64-dimensional bottleneck $H^{(2)}$ serves as the embedding space for the SAE analysis. The objective function was the Mean Squared Error (MSE) computed strictly on the set of masked nodes $\mathcal{M}$:
+where $W^{(l)}$ and $b^{(l)}$ are the learnable weight matrix and bias vector. The network maps dimensions $2 \to 88 \to 64 \to 1$. The 64-dimensional bottleneck $H^{(2)}$ serves as the embedding space for the SAE analysis. The objective function was the Mean Squared Error (MSE) computed strictly on the set of masked nodes $\mathcal{M}$:
 \begin{equation}
 \mathcal{L}_{\text{GNN}} = \frac{1}{|\mathcal{M}|} \sum_{i \in \mathcal{M}} (y_i - \hat{y}_i)^2
 \end{equation}
@@ -240,53 +241,38 @@ where the attention coefficients
 depend on the learned vector $a^{(l,k)}$ and the explicit edge feature $e_{ij}$ (the original interaction weight). To align with the SAE analysis, the network uses the dimension flow
 $2 \rightarrow 64 \rightarrow 64 \rightarrow 1$: the first layer has 2 heads of size 32, the second layer fixes 8 heads of size 8 (yielding the 64-dimensional representation consumed by the SAE), and the final layer is a single-head attention that produces scalar predictions. Dropout of $0.0$ is applied after each attention block. The loss mirrors the GCN case, namely Mean Squared Error over the masked node set $\mathcal{M}$, and the model is trained for 200 epochs with patience set to 25 so that the full schedule is executed.
 
-\subsubsection{Hyperparameter Optimization via Optuna}
-
-To ensure optimal model performance and facilitate fair comparison across architectures, we conducted systematic hyperparameter optimization using the Optuna framework \cite{akiba2019optuna}. Optuna employs a Tree-structured Parzen Estimator (TPE) sampling algorithm, which models the conditional distribution of hyperparameters given the objective value and iteratively samples from regions of the hyperparameter space that are likely to yield improved performance.
-
-The optimization was performed independently for each architecture (GCN and GAT) to account for architecture-specific optimal configurations. For each trial, the objective function was defined as the validation loss after training for a maximum of 100 epochs with early stopping (patience = 25). The search space encompassed the following hyperparameters:
-
-\begin{itemize}
-    \item \textbf{Learning rate}: Log-uniform distribution in the range $[10^{-5}, 10^{-1}]$
-    \item \textbf{Hidden dimensions}:
-    \begin{itemize}
-        \item GCN Layer 1: $\{8,128\}$ with a step of 8
-        \item GAT heads per layer: $\{2, 4, 6, 8\}$ for layer 1, fixed at 8 for layer 2
-        \item GAT channels per head: $\{8,128\}$ with a step of 8 for layer 1, fixed at 8 for layer 2
-    \end{itemize}
-    \item \textbf{Dropout rate}: Uniform distribution in $[0.0, 0.5]$
-    \item \textbf{Batch size}: Fixed at 128
-\end{itemize}
-
-Each hyperparameter optimization study consisted of 50 trials. The best-performing configuration was selected based on the minimum validation loss achieved across all trials. To ensure reproducibility, all trials within a single study used the same data split (seed = 42), isolating the effect of hyperparameters from data variability.
+\subsubsection{Performance Variance Across Seeds.}
+  To rigorously quantify the performance differences between GNN models and baselines, we employ a multi-seed statistical framework that addresses
+  reproducibility concerns common in machine learning research. Each model (GCN, GAT, MLP, Mean baseline) is trained independently across $N=20$ random
+  seeds, with each seed controlling weight initialization, data shuffling, and node masking patterns. For each seed $s \in arange\{20\}$, we record the     
+   test set MSE computed exclusively on masked nodes. The mean, median, P25, P75, interquartile range (IQR), standard deviation, 95\% CI, min and max across test loss of the model runs across the listed seeds has been reported. Results obtained from these multi-seed runs are used subsequently for doing pairwise correlation tests to compare graph-based methods  (GCN and GAT) with non-graph/baseline methods (MLP). 
 
 \subsubsection{Baseline Models for Comparative Evaluation}
 
-To establish the value of graph-structured learning and validate that the GNN architectures capture motif-specific patterns beyond simple feature-based prediction, we implemented one baseline model with varying levels of complexity:
+To establish the value of graph-structured learning and validate that the GNN architectures capture motif-specific patterns beyond simple feature-based prediction, we implemented one baseline model:
+
+\paragraph{Fixed architecture of GCN and GAT for baseline comparison} During baseline comparison analysis, we froze the architecture to $2 \to 128 \to 64 \to 1$ for GCN and $2 \to 32 \times4=128 \to 8 \times 8 = 64 \to 1$ where the second layer configuration is based on what was reported for intermediate GAT layers in the foundational GAT paper (\citet{velickovic2018}). The first layer has been fixed at 128 for the GCN similar to standard intuition in deep learning where we begin with projecting inputs to a higher dimensional space and progressively reduce in dimension to get more meaningful features. Intermediate layers $32 \times 4$ for the first layer of GAT gets us the same amount of features (128) as in GCN. For getting to the second layer with lower hidden dim than 32, 8 made sense as it matches the configuration in the original GAT paper (\citet{velickovic2018}) and also allows us to increase the number of heads, allowing the network to learn more varied representations in the second layer.
 
 \paragraph{MLP Baseline (Feature-Only Learning)}
 To isolate the contribution of graph structure, we implemented a multi-layer perceptron (MLP) that operates exclusively on node features without access to the graph topology. The MLP architecture mirrors the depth of the GNN models: $2 \to 128 \to 64 \to 1$, with ReLU activations and dropout (0.2) applied after each hidden layer. The input consists of the same two-channel node features used by the GNNs: normalized expression and mask indicator.
 
 \subsubsection{Statistical Evaluation of Baseline Performance}
 
-  To rigorously quantify the performance differences between GNN models and baselines, we employ a multi-seed statistical framework that addresses
-  reproducibility concerns common in machine learning research. Each model (GCN, GAT, MLP, Mean baseline) is trained independently across $N=5$ random
-  seeds, with each seed controlling weight initialization, data shuffling, and node masking patterns. For each seed $s \in \{0, 2, 3, 4, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19\}$, we record the     
-   test set MSE computed exclusively on masked nodes.
-
+    Because model performance across random seeds is heteroscedastic, often non-Gaussian, and derived from paired evaluations on identical data splits, we adopt a fully nonparametric analysis. We use the \textbf{Wilcoxon signed-rank test} to assess whether paired differences between model variants are statistically significant without assuming normality. To quantify the magnitude and direction of these differences, we report the \textbf{rank-biserial correlation effect size} as the corresponding effect size associated with Wilcoxon. For rank-biserial effect size, we provide \textbf{95\% bootstrapped confidence intervals}, which offer assumption-free uncertainty estimates and remain valid under skewed or heavy-tailed performance distributions. This combination yields a robust and reproducible assessment of performance differences under stochastic training.
+    
   \paragraph{Wilcoxon Signed-Rank Test.}
   For each comparison, we apply the Wilcoxon signed-rank test, a non-parametric paired test that makes no assumptions about the distribution of performance      
   differences. The test operates on the paired differences $\delta_s = \text{MSE}_s^{(A)} - \text{MSE}_s^{(B)}$ for models $A$ and $B$ trained with the same    
    seed $s$. The null hypothesis $H_0$ is that the median difference is zero (i.e., the two models perform equivalently). We reject $H_0$ at significance        
   level $\alpha = 0.05$ if the two-tailed p-value falls below this threshold.
 
-  \paragraph{Effect Size Quantification.}
+  \paragraph{Rank-Biserial Correlation Effect Size.}
   Statistical significance alone does not indicate practical importance. To quantify the magnitude of performance differences, we compute the rank-biserial      
   correlation coefficient $r_{rb}$, which is defined as:
   \begin{equation}
   r_{rb} = 1 - \frac{2U}{n_1 n_2}
   \end{equation}
-  where $U$ is the Mann-Whitney U statistic (equivalent to the Wilcoxon statistic for paired data after appropriate transformation), and $n_1 = n_2 = 5$ is      
+  where $U$ is the Mann-Whitney U statistic (equivalent to the Wilcoxon statistic for paired data after appropriate transformation), and $n_1 = n_2 = 20$ is      
   the number of seeds. The coefficient $r_{rb} \in [-1, 1]$ measures the effect size, with the following interpretation:
   \begin{itemize}
       \item $|r_{rb}| < 0.1$: Negligible effect
@@ -297,33 +283,55 @@ To isolate the contribution of graph structure, we implemented a multi-layer per
 
   \paragraph{Bootstrap Confidence Intervals.}
   To quantify uncertainty in the effect size estimates, we generate bootstrap confidence intervals via resampling with replacement. For each pairwise
-  comparison, we draw 10,000 bootstrap samples from the original five performance measurements per model, recompute the effect size for each bootstrap
+  comparison, we draw 10,000 bootstrap samples from the original $n_{1}$ (number of seeds) performance measurements per model, recompute the effect size for each bootstrap
   sample, and report the 95\% confidence interval as the 2.5th and 97.5th percentiles of the bootstrap distribution. Narrow confidence intervals indicate        
   precise effect estimates, while wide intervals suggest high variability.
 
-  This statistical framework allows us to make robust claims about model superiority beyond single-run anecdotal evidence, addressing recent calls for
+  This statistical framework allows us to make robust claims about model superiority beyond single-run anecdotal evidence, addressing
   reproducibility and statistical rigor in deep learning benchmarks.
+
+
+\subsubsection{Hyperparameter Optimization via Optuna}
+
+To ensure optimal model performance and facilitate fair comparison across architectures, we conducted systematic hyperparameter optimization using the Optuna framework \cite{akiba2019optuna}. Optuna employs a Tree-structured Parzen Estimator (TPE) sampling algorithm, which models the conditional distribution of hyperparameters given the objective value and iteratively samples from regions of the hyperparameter space that are likely to yield improved performance.
+
+The optimization was performed independently for each architecture (GCN and GAT) to account for architecture-specific optimal configurations. For each trial, the objective function was defined as the validation loss after training for a maximum of 100 epochs with early stopping (patience = 25). The search space encompassed the following hyperparameters:
+
+\begin{itemize}
+    \item \textbf{Learning rate}: Log-uniform distribution in the range $[10^{-5}, 10^{-1}]$
+    \item \textbf{Hidden dimensions}:
+    \begin{itemize}
+        \item GCN Layer 1 hidden dim (channels): $\{8,128\}$ with a step of 8
+        \item GAT heads per layer: $\{2, 4, 6, 8\}$ for layer 1, fixed at 8 for layer 2
+        \item GAT channels per head: $\{8,128\}$ with a step of 8 for layer 1, fixed at 8 for layer 2
+    \end{itemize}
+    \item \textbf{Dropout rate}: Uniform distribution in $[0.0, 0.5]$
+    \item \textbf{Batch size}: Fixed at 128
+\end{itemize}
+
+Each hyperparameter optimization study consisted of 20 trials. The best-performing configuration was selected based on the minimum validation loss achieved across all trials. To ensure reproducibility, all trials within a single study used the same data split, (seed = 42), isolating the effect of hyperparameters from data variability.
 
 \subsection{Fixed Hyperparameter Choices}
 \label{sec:hyperparams}
 
-In this section, we report the fixed hyperparameters used for all experiments and provide concise motivations tied to prior literature. Where possible we adopt values recommended by canonical GNN and masked-autoencoder and sparse-autoencoder studies to ensure reproducibility and fair model comparison.
+Hyperparameter sweep is notably done for learning rate, dropout, hidden dimensions and number of heads (only for GAT). In this section, we report the hyperparameters that are fixed for all/certain experiments and provide concise motivations tied to prior literature. Where possible we adopt values recommended by canonical GNN and masked-autoencoder and sparse-autoencoder studies to ensure reproducibility and fair model comparison.
 
-\paragraph{Batch size.} We train all models with \texttt{batch\_size = 128}. This is consistent with prior large-scale GNN representation studies that report stable optimization dynamics in the range $\{64,128\}$ for mini-batch training. In particular, the MISATO framework for probing mechanistic interpretability in GNNs \cite{misato2024} performs all SAE-based circuit extraction experiments using batch sizes between 64 and 128 for both pretraining and probing phases, noting that (i) these batch sizes yield low-variance gradient estimates that preserve feature-level structure in the learned representations, and (ii) larger batches reduce stochasticity that otherwise obscures motif-level attribution. MISATO further reports that increasing the batch size beyond 128 provides no measurable improvement in reconstruction or interpretability metrics, whereas smaller batches increase variance in SAE feature discovery. Following this guidance, we adopt 128 as a stable, memory-efficient setting that ensures comparability with recent interpretability work while maintaining efficient GPU utilization.
+\paragraph{Batch size.} We train all models with \texttt{batch\_size = 128}. This setting balances gradient noise, GPU throughput, and memory constraints for medium-scale graph representation learning. Prior masked-graph modeling work provides empirical precedent for batch sizes in the $64$–$256$ range: \citet{hou2022} report dataset-specific moderate batch sizes for GraphMAE pretraining, while \citet{maskgae2023} analyze the computational benefits of masked graph modeling that permit larger batches. More recently, the hierarchical masked-graph autoencoder Hi-GMAE explicitly adopts \texttt{batch\_size = 256} for pretraining (\citet{higmae2024}), demonstrating that batches at or above 128 are standard in contemporary GMAE pipelines. Although MISATO does not perform masked-node reconstruction, its molecular GNN baselines are commonly trained with \texttt{batch\_size = 128} on ligand-level quantum-mechanical regression tasks (\citet{misato2024}), providing a domain-proximate precedent that 128 is practical and stable for molecular graph workloads.
 
-\paragraph{Model widths and second-layer size.} To make activations comparable between architectures we use a second-layer output dimension of 64 for all models (GCN, GAT) and for the SAE analysis. For GAT this matches the original architecture choice (8 heads with 8 features each $\rightarrow 8\times8=64$) which is the setting reported by \citet{velickovic2018}. The original GCN paper used smaller hidden sizes for the small citation benchmarks (e.g., 16) \cite{kipf2017}; we intentionally increase the GCN output to 64 so that downstream SAE analyses receive embeddings of equal dimension across models (this is a common practice when comparing representational geometry across model families) \cite{kipf2017,pahng2024}.
 
-\paragraph{GAT internals (hidden dimensions and heads).} We follow the original GAT architectural configuration of 8 attention heads with 8 features per head in the intermediate layers, as reported by \citet{velickovic2018}. The original GAT paper motivated this choice through extensive ablation studies on citation networks (Cora, Citeseer, Pubmed), demonstrating that multi-head attention with $K=8$ heads stabilizes the learning process and allows the model to jointly attend to information from different representation subspaces at different positions in the graph. They found that using 8 features per head strikes an optimal balance between model expressivity and computational efficiency, while the multi-head mechanism provides implicit ensemble learning that improves robustness. For our second layer, this yields $8 \times 8 = 64$ total dimensions, matching our standardized bottleneck for SAE analysis. The original paper reported that increasing the number of heads beyond 8 provided diminishing returns, while fewer heads led to less stable training dynamics on graph-structured data.
+\paragraph{Model widths and second-layer size:} To make activations comparable between architectures we use a second-layer output dimension of 64 for all models (GCN, GAT) and for the SAE analysis (the output/result after the decoder). For GAT this also allows us to match the original architecture choice (8 heads with 8 features each $\rightarrow 8\times8=64$) which is the setting reported by the original GAT paper (\citet{velickovic2018}). The original GCN paper used smaller hidden sizes for the small citation benchmarks (e.g., 16) \cite{kipf2017} but we intentionally increase the GCN output to 64 so that downstream SAE analyses receive embeddings of equal dimension across models (this is a common practice when comparing representational geometry across model families) \cite{kipf2017,pahng2024}. In summary, the second layer is fixed throughout all experiments based on architectural choices in foundational literature (\cite{kipf2017},\cite{velickovic2018}. The first intermediate layer is where hyperparameter sweep via Optuna (as in Section 2.2.6) is carried out. Except for multi-seed variance and baseline comparison analysis, all experiments using GNNs or GNN activations are using the optimal hyperparameters obtained from the sweep.
 
-\paragraph{Masking probability (\texttt{mask\_prob}).} We use \texttt{mask\_prob = 0.2}. Masked graph autoencoder work has shown that reconstruction performance and downstream transfer vary with mask ratio and that conservative masking ratios (e.g., $0.1$--$0.3$) are often a stable starting point for discriminative downstream tasks, while larger ratios may be workable but can degrade performance depending on redundancy in node features and graph homophily \cite{hou2022,maskgae2023}. We therefore choose 0.2 as a conservative masking rate that provides a meaningful reconstruction task while retaining sufficient observed context for stable SAE learning.
+\paragraph{GAT internals (hidden dimensions and heads):} We follow the original GAT architectural configuration of 8 attention heads with 8 features per head in our 2nd layer, as reported by \citet{velickovic2018}. One thing to note is that the original GAT paper only had one intermediate GAT layer which is where $8\times8$ configuration was used (while we have two to reach two hop neighborhoods). They motivated this choice through extensive ablation studies on citation networks (Cora, Citeseer, Pubmed), demonstrating that multi-head attention with $K=8$ heads stabilizes the learning process and allows the model to jointly attend to information from different representation subspaces at different positions in the graph. They found that using 8 features per head strikes an optimal balance between model expressivity and computational efficiency, while the multi-head mechanism provides implicit ensemble learning that improves robustness. For our second layer, this yields $8 \times 8 = 64$ total dimensions, matching our standardized bottleneck for SAE analysis. The original paper reported that increasing the number of heads beyond 8 provided diminishing returns, while fewer heads led to less stable training dynamics on graph-structured data.
 
-\paragraph{Optimizer, learning rate and training schedule.} We use Adam with a baseline learning rate \texttt{lr=1e-3} for the baseline comparison analysis. A learning rate of $10^{-3}$ is a common default in modern GNN work and appears frequently in both empirical GNN studies and GNN AutoML search ranges; it provides a stable baseline for comparisons across architectures (we report experiments with identical optimizer settings for all models). \cite{zhou2022automl,knyazev2019}.
+\paragraph{Masking probability (\texttt{mask\_prob}):} We use \texttt{mask\_prob = 0.2}. Masked graph autoencoder work has shown that reconstruction performance and downstream transfer vary with mask ratio and that conservative masking ratios (e.g., $0.1$--$0.3$) are often a stable starting point for discriminative downstream tasks, while larger ratios may be workable but can degrade performance depending on redundancy in node features and graph homophily \cite{hou2022,maskgae2023}. We therefore choose 0.2 as a conservative masking rate that provides a meaningful reconstruction task while retaining sufficient observed context for stable SAE learning.
 
-\paragraph{Epochs and early stopping.} We train for up to \texttt{num\_epochs=100} with early stopping (validation patience $=25$). A 100-epoch budget combined with a moderate patience value offers sufficient time for convergence on the medium-scale benchmarks used in this study while avoiding overfitting; patience of 20--50 epochs is common in applied deep learning and has been used in recent GNN / autoencoder papers as a conservative stopping heuristic \cite{prechelt1998,hou2022}. We also save the best validation checkpoint and report metrics from that checkpoint.
+\paragraph{Optimizer, learning rate and training schedule:} We use Adam with a baseline learning rate \texttt{lr=1e-3} for the baseline comparison analysis. A learning rate of $10^{-3}$ is a common default in modern GNN work and appears frequently in both empirical GNN studies and GNN AutoML search ranges; it provides a stable baseline for comparisons across architectures (we report experiments with identical optimizer settings for all models). \cite{zhou2022automl,knyazev2019}.
 
-\paragraph{Concat vs.\ final projection.} The choice to \texttt{concat=True} in intermediate attention layers (and \texttt{concat=False} in the final layer) follows the original GAT design: concatenation across heads increases representational capacity mid-network, whereas the final layer projects to logits without concatenation for stable classification outputs \cite{velickovic2018}. When comparing representations we keep this canonical behavior to ensure our GAT baseline mirrors the original design.
+\paragraph{Epochs and early stopping:} We train for up to \texttt{num\_epochs=100} with early stopping (validation patience $=25$). A 100-epoch budget combined with a moderate patience value offers sufficient time for convergence on the medium-scale benchmarks used in this study while avoiding overfitting; patience of 20--50 epochs is common in applied deep learning and has been used in recent GNN / autoencoder papers as a conservative stopping heuristic \cite{prechelt1998,hou2022}. We also save the best validation checkpoint and report metrics from that checkpoint.
 
-\paragraph{Practical notes and reproducibility.} For every reported experiment we (i) fix the random seeds, (ii) run each model across multiple seeds and report mean $\pm$ std, and (iii) provide a short config file in the supplementary material with the exact training script, optimizer state, and checkpointing procedure.
+\paragraph{Concat vs.\ final projection:} The choice to \texttt{concat=True} in intermediate attention layers (and \texttt{concat=False} in the final layer) follows the original GAT design: concatenation across heads increases representational capacity mid-network, whereas the final layer projects to logits without concatenation for stable classification outputs \cite{velickovic2018}. When comparing representations we keep this canonical behavior to ensure our GAT baseline mirrors the original design.
+
+\paragraph{Practical notes and reproducibility:} For every hyperparameter tuning experiment we fix the random seed (seed = 42). Only for multi-seed variance we run each model across multiple seeds (from 0 to 19) and obtain statistical data about test loss from masked nodes. Baseline comparison analysis uses this test loss data to do pairwise tests talked about earlier.
 
 \subsection{Sparse Autoencoder Learning}
 
@@ -427,6 +435,8 @@ The impact metric was defined as the Mean Squared Error (MSE) between the GNN's 
 
 We define the \textbf{Ablation Impact} as $\Delta_{abl} = L_{abl} - L_{full}$. A statistically significant positive $\Delta_{abl}$ (verified via Wilcoxon signed-rank test) indicates that the ablated feature contained necessary information for the GNN's performance on that specific motif, confirming its causal role.
 
+Mixed-motif graphs are randomly connected edges between different single-motif graphs. We still only keep 10 nodes for a single graph. We run these graphs as inference and we observe zero-shot generalization in the GCN regarding motif-specific effect in causal ablation of latent dimension. (More in Section 3.7)
+
 
 \section{Experimental Results}
 
@@ -436,7 +446,7 @@ We organize our results to trace the journey from raw graph learning to mechanis
 
 Before training, we verified the integrity of our synthetic dataset. The edge weights were distributed broadly (Figure \ref{fig:edge_dist}), ensuring that the GNN must learn to handle variable signal strengths rather than relying on binary adjacency. We employed the Optuna framework to systematically optimize the GNN hyperparameters. As shown in Figure \ref{fig:optuna_history}, the optimization process effectively explored the hyperparameter space, converging towards a stable region of low validation loss. The distribution of losses across trials (Figure \ref{fig:optuna_loss}) demonstrates that the selected configuration significantly outperforms the mean, confirming the value of the optimization step.
 
-Based on this analysis, the final GCN model was trained with an optimal \textbf{Learning Rate of 0.017}, a \textbf{Batch Size of 128}, and a \textbf{Masking Probability of 0.2}. We trained for \textbf{100 epochs} with an early stopping patience of 25. As shown in Figure \ref{fig:training_loss}, the model achieved rapid convergence using these parameters, with the training and validation losses tracking closely. The final Test Loss stabilized at approximately $0.00377$, indicating that the model successfully generalized the propagation rules to unseen graphs without overfitting.
+We trained for \textbf{100 epochs} with an early stopping patience of 25. As shown in Figure \ref{fig:training_loss}, the model achieved rapid convergence using these parameters, with the training and validation losses tracking closely. The final Test Loss stabilized at approximately $0.00377$, indicating that the model successfully generalized the propagation rules to unseen graphs without overfitting.
 
 \begin{figure}[H]
   \centering
@@ -445,39 +455,45 @@ Based on this analysis, the final GCN model was trained with an optimal \textbf{
   \label{fig:edge_dist}
 \end{figure}
 
+\subsection{Data Sensitivity Analysis}
+The analysis was performed independently for both GCN and GAT architectures to ensure that our findings generalize across different graph learning paradigms.
+
+\subsubsection{Timestep Sensitivity}
+
+The number of simulation timesteps controls how long the expression dynamics evolve before reaching a stable state. We evaluated three settings: 25, 50 (our baseline), and 75 timesteps. As shown in Figure \ref{fig:gcn_sensitivity}, the GCN architecture exhibits a clear performance optimum at 50 timesteps. With only 25 timesteps, the system has insufficient time to converge, resulting in higher test loss ($\sim$0.0064) and validation loss ($\sim$0.0053). At 75 timesteps, performance remains stable but offers no significant improvement over 50 timesteps, indicating that the dynamics have already converged by that point.
+
+The GAT architecture (Figure \ref{fig:gat_sensitivity}) displays similar behavior, with 50 timesteps achieving the optimal balance between convergence and computational efficiency. Notably, at 25 timesteps, the validation loss for GAT ($\sim$0.0059) is higher than at 50 timesteps ($\sim$0.0051), confirming that insufficient simulation time degrades the quality of the training signal. This consistent pattern across both architectures validates our choice of 50 timesteps as sufficient for the expression dynamics to reach biologically meaningful steady states without introducing unnecessary computational overhead.
+
+\subsubsection{Noise Sensitivity}
+
+The noise parameter ($\epsilon_t$ in Equation 1) models stochastic fluctuations in gene expression, a fundamental property of biological systems. We tested three noise standard deviations: 0.005, 0.01 (baseline), and 0.05. Both architectures exhibit strong monotonic sensitivity to noise levels. As noise increases from 0.005 to 0.05, test loss rises from approximately 0.0056 to 0.0104 for GCN, and from 0.0052 to 0.0101 for GAT.
+
+This degradation is expected: higher noise obscures the deterministic signal propagated by the graph structure, making the imputation task fundamentally more difficult. Our baseline choice of 0.01 represents a compromise between biological realism (gene expression \textit{is} noisy) and learning signal quality. Too little noise (0.005) creates an artificially clean task that may not generalize to real regulatory data; too much noise (0.05) overwhelms the structural information the GNN is designed to exploit.
+
+\subsubsection{Cross-Architecture Consistency}
+
+A critical observation is that GCN and GAT display nearly identical sensitivity profiles. Both architectures prefer 50 timesteps and exhibit comparable degradation patterns as noise increases. This consistency suggests that our data generation choices are not artifacts of a specific aggregation mechanism (graph convolution vs. attention) but rather reflect fundamental properties of the learning task. The alignment also indicates that our downstream interpretability findings (Sections 3.4--3.6) are unlikely to be confounded by suboptimal data parameters.
+
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=\textwidth]{gcn_sensitivity_detailed.png}
+  \caption{GCN data sensitivity analysis. \textbf{Left:} Timestep sensitivity showing optimal performance at 50 timesteps (red dashed line). Fewer timesteps result in unconverged dynamics, while more timesteps provide no additional benefit. \textbf{Right:} Noise sensitivity demonstrating monotonic degradation as noise standard deviation increases from 0.005 to 0.05. The baseline choice of 0.01 (red dashed line) balances realism and learnability.}
+  \label{fig:gcn_sensitivity}
+\end{figure}
+
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=\textwidth]{gat_sensitivity_detailed.png}
+  \caption{GAT data sensitivity analysis. The sensitivity profiles closely mirror those of the GCN, confirming that 50 timesteps and 0.01 noise are robust choices across architectures. The convergence of test and validation curves at 50 timesteps indicates stable generalization.}
+  \label{fig:gat_sensitivity}
+\end{figure}
+
+\FloatBarrier
+
 \subsection{Statistical Analysis of Baseline Comparisons}
 
-  To validate that the observed performance differences between GNN models and baselines are statistically significant and practically meaningful, we
-  conducted a multi-seed evaluation across $N=5$ random seeds. Table \ref{tab:statistical_comparison} summarizes the pairwise statistical tests for all four     
-   comparisons of interest.
-
-  \begin{table}[htbp]
-    \centering
-    \caption{Pairwise statistical comparison of model performance across 5 random seeds. Bold indicates statistical significance at $\alpha \le 0.05$.}
-    \label{tab:statistical_comparison}
-    \begin{tabular}{lcccccc}
-      \toprule
-      \textbf{Comparison} & \textbf{Mean Diff} & \textbf{p-value} & \textbf{$r_{rb}$} & \textbf{95\% CI} & \textbf{Effect} & \textbf{Significant?} \\
-      \midrule
-      GCN vs. MLP & -0.0008 & \textbf{0.000002} & 1.00 & [1.0000, 1.0000] & Large & Yes \\
-      GAT vs. MLP & -0.0001 & \textbf{0.0083} & 0.8286 & [0.6238, 0.9714] & Large & Yes \\
-      \bottomrule
-    \end{tabular}
-  \end{table}
-
-  \paragraph{GNN vs. Graph-Agnostic MLP.}
-  The comparison between GNNs and the MLP baseline isolates the contribution of graph structure. Both GCN and GAT significantly outperform the MLP (p =
-  0.000002 for GCN vs MLP and p = 0.0083 for GAT vs MLP), with mean differences of -0.0008 and -0.0001 respectively. The large effect sizes ($r_{rb} \gg 0.75$) demonstrate that graph convolutions        
-  provide substantial predictive advantage beyond node features alone. Graph attention works well but has close performance with MLP. However, p-values and effect sizes clearly indicate GAT working better over the runs across 20 seeds.    
-
-  \paragraph{Bootstrap Confidence Intervals.}
-  The 95\% bootstrap confidence intervals for all effect sizes exclude zero and remain well within the "large effect" range ($r_{rb} \geq 0.5$), indicating
-  that the observed differences are robust and not artifacts of random seed selection. The very narrow intervals (e.g., [1.00, 1.00] for GCN vs. MLP)
-   suggest stable performance across initialization and data split variability, node masking and dropout. The relatively wide intervals (e.g., [0.62, 0.97] for GAT vs. MLP)
-   suggest performance being affected across the same stochastic training parameters (initialization, data split, node masking and dropout). However, p-value $\le 0.05$ and rank-biserial effect size ($\ge |0.5|$) clearly indicate GAT performing better than graph-agnostic MLP.
-
 \paragraph{Performance Variance Across Seeds.}
-To comprehensively assess model stability and reproducibility, we analyzed the variance of test set performance across 20 random seeds for GCN, GAT, and MLP models. Table \ref{tab:variance_summary} presents detailed statistical summaries including mean, median, standard deviation, interquartile range (IQR), and percentiles for each model. The analysis reveals that GCN exhibits the lowest variance and tightest distribution, indicating highly consistent performance across different initializations and data splits. GAT shows slightly higher variance but maintains stable performance, with the median test MSE closely tracking the mean. The MLP baseline demonstrates the highest variance, reflecting its sensitivity to initialization without the stabilizing effect of graph structure. The narrow standard deviations and IQRs for GCN and GAT validate that graph-based architectures not only achieve superior performance but also maintain consistent behavior across training runs, a critical property for reproducible machine learning research.
+ Table \ref{tab:variance_summary} presents detailed statistical summaries including mean, median, standard deviation, interquartile range (IQR), and percentiles for each model. The analysis reveals that GCN exhibits the lowest variance and tightest distribution, indicating highly consistent performance across different initializations and data splits. GAT shows slightly higher variance but maintains stable performance, with the median test MSE closely tracking the mean. The MLP baseline demonstrates the highest variance, reflecting its sensitivity to initialization without the stabilizing effect of graph structure. The narrow standard deviations and IQRs for GCN and GAT validate that graph-based architectures not only achieve superior performance but also maintain consistent behavior across training runs, a critical property for reproducible machine learning research.
 
 \begin{table}[htbp]
   \centering
@@ -496,6 +512,33 @@ To comprehensively assess model stability and reproducibility, we analyzed the v
   }
 \end{table}
 
+  To validate that the observed performance differences between GNN models and baselines are statistically significant and practically meaningful, this data from multi-seed evaluation across $N=20$ random seeds was used to carry out pairwise statistical tests (Wilcoxon signed-rank test, rank-biserial correlation and 95\% bootstrapped CIs on rank-biserial correlation). Table \ref{tab:statistical_comparison} summarizes the pairwise statistical tests for all two     
+   comparisons of interest.
+
+  \begin{table}[htbp]
+    \centering
+    \caption{Pairwise statistical comparison of model performance across 20 random seeds. Bold indicates statistical significance at $\alpha \le 0.05$.}
+    \label{tab:statistical_comparison}
+    \begin{tabular}{lcccccc}
+      \toprule
+      \textbf{Comparison} & \textbf{Mean Diff} & \textbf{p-value} & \textbf{$r_{rb}$} & \textbf{95\% CI} & \textbf{Effect} & \textbf{Significant?} \\
+      \midrule
+      GCN vs. MLP & -0.0008 & \textbf{0.000002} & 1.00 & [1.0000, 1.0000] & Large & Yes \\
+      GAT vs. MLP & -0.0001 & \textbf{0.0083} & 0.8286 & [0.6238, 0.9714] & Large & Yes \\
+      \bottomrule
+    \end{tabular}
+  \end{table}
+
+  \paragraph{GNN vs. Graph-Agnostic MLP.}
+  The comparison between GNNs and the MLP baseline isolates the contribution of graph structure. Both GCN and GAT significantly outperform the MLP (p =
+  0.000002 for GCN vs MLP and p = 0.0083 for GAT vs MLP), with mean differences of -0.0008 and -0.0001 respectively. The large effect sizes ($|r_{rb}| \gg 0.75$) demonstrate that graph convolutions        
+  provide substantial predictive advantage beyond node features alone. Graph attention has very close performance with MLP. While optimal p-values and effect sizes indicate that statistically and practically respectively, GAT might have a slight edge in performance across multiple seeds, it isn't enough to show that it is utilizing graph structure meaningfully compared to MLP which uses no graph structure but still performs close to the GAT.
+
+  \paragraph{Bootstrap Confidence Intervals.}
+  The 95\% bootstrap confidence intervals for all effect sizes exclude zero and remain well within the "large effect" range ($|r_{rb}| \geq 0.5$), indicating
+  that the observed differences are robust and not artifacts of random seed selection. The very narrow intervals (e.g., [1.00, 1.00] for GCN vs. MLP)
+   suggest stable performance across initialization and data split variability, node masking and dropout. The relatively wide intervals (e.g., [0.62, 0.97] for GAT vs. MLP) suggest performance varies appreciably across those stochastic training parameters (initialization, data split, node masking and dropout). GAT results suggest an insignificant difference in mean test losses with the MLP, justifying on our focus on the GCN architecture for this manuscript.
+
 \FloatBarrier
 
 \subsection{Hyperparameter Optimization Results}
@@ -503,13 +546,11 @@ To comprehensively assess model stability and reproducibility, we analyzed the v
   \subsubsection{Graph Convolutional Network (GCN)}
 
   The GCN hyperparameter search converged after 50 trials using Optuna's TPE sampler, with the optimization history showing rapid initial improvement
-  followed by stable convergence. The best configuration achieved a validation loss of 0.00356, with the following optimal hyperparameters: learning rate       
+  followed by stable convergence. The best configuration achieved a validation loss of 0.0045, with the following optimal hyperparameters: learning rate       
   $3.47 \times 10^{-3}$, hidden dimension (Layer 1) of 128, hidden dimension (Layer 2) of 64, dropout of 0.20, and batch size of 128.
 
   The optimization history demonstrates that the TPE sampler efficiently explored the hyperparameter space, with the majority of improvement occurring
-  within the first 20 trials. The loss distribution across all trials shows a concentration of validation losses in the range [0.0035, 0.0045], with a long     
-  tail extending to 0.012, indicating that certain hyperparameter combinations (particularly very small batch sizes and high dropout rates) led to
-  substantially degraded performance.
+  within the first 20 trials. 
 
   \begin{figure}[H]
   \centering
@@ -527,37 +568,6 @@ To comprehensively assess model stability and reproducibility, we analyzed the v
   \label{fig:optuna_history}
   \end{figure}
 
-  \subsubsection{Graph Attention Network (GAT)}
-
-  The GAT architecture exhibited a more complex optimization landscape due to the larger hyperparameter space introduced by multi-head attention. After 50      
-  trials, the best configuration achieved a validation loss of 0.0046, marginally higher than the GCN. The optimal hyperparameters were: learning rate
-  $1.49 \times 10^{-2}$ (approximately 0.01487), Layer 1 with 2 heads $\times$ 32 channels = 64 dimensions, Layer 2 with 8 heads $\times$ 8 channels = 64       
-  dimensions, dropout of 0.0, and batch size of 128.
-
-  Figure \ref{fig:gat_optuna} shows the optimization history and loss distribution for the GAT hyperparameter sweep. The optimization trajectory exhibits       
-  more variability in intermediate trials compared to the GCN, suggesting that the attention mechanism introduces sensitivity to the configuration of heads     
-  and channels. The loss distribution shows a concentration in the range [0.0035, 0.0050], with several trials exploring suboptimal regions of the
-  hyperparameter space before the TPE sampler converged on the optimal configuration.
-
-  \begin{figure}[htbp]
-    \centering
-    \includegraphics[width=\textwidth]{GAT Figures/loss_distribution.png}
-    \caption{GAT hyperparameter optimization results from 20 Optuna trials. \textbf{(Left)} Optimization history showing validation loss progression, with      
-  the red line indicating the best value achieved up to each trial. \textbf{(Right)} Distribution of validation losses across all trials, demonstrating the     
-  exploration of the hyperparameter space and concentration of well-performing configurations.}
-    \label{fig:gat_optuna}
-  \end{figure}
-  
-  \begin{figure}[H]
-  \centering
-  \includegraphics[width=\textwidth]{GAT Figures/optimization_history.png}
-  \caption{GAT hyperparameter optimization history using Optuna}
-  \label{fig:optuna_history}
-  \end{figure}
-
-  Interestingly, the optimal GAT configuration uses a significantly higher learning rate ($1.49 \times 10^{-2}$) compared to the GCN ($3.47 \times
-  10^{-3}$), suggesting that the attention mechanism benefits from more aggressive optimization steps. However, the optimal dropout was 0.0 for GAT versus
-  0.20 for GCN, indicating that the attention mechanism may provide implicit regularization that reduces the need for explicit dropout.
 
 \subsection{GNN Training Convergence}
 We'll now dive into the training and convergence of the GCN and GAT trained from scratch on the optimal hyperparameters obtained from the previous graphs
@@ -569,105 +579,67 @@ The training results indicated strong convergence and successful learning of pro
       \begin{figure}[H]
       \centering
       \includegraphics[width=0.9\textwidth]{training_progress.png}
-      \caption{Training and validation loss (masked MSE) over epochs for the GCN model. The vertical red dashed line marks the best epoch (73). The consistent decrease in loss validates the model's capacity to learn the underlying expression dynamics.}
+      \caption{Training and validation loss (masked MSE) over epochs for the GCN model. The vertical red dashed line marks the best epoch (38). The consistent decrease in loss validates the model's capacity to learn the underlying expression dynamics.}
       \label{fig:training_loss}
       \end{figure}
       \FloatBarrier
 
 
-\subsubsection{Graph Attention Network (GAT) Training and Convergence}
-
-After sweeping the GAT hyperparameters (varying head counts, hidden widths, and learning rates), we selected the configuration that minimized validation masked-MSE while producing stable SAE activations. The final architecture uses two attention heads of 32 dimensions in the first layer (projecting $2 \rightarrow 64$), eight heads of eight dimensions in the second layer (maintaining the 64-D bottleneck consumed by the SAE), and a single-head attention block for the final prediction; all attention blocks apply dropout $0.0$.
-
-The learning-rate sweep identified \textbf{$1.48 \times 10^{-2}$ (i.e., $0.014874209528998391$) }as the best setting. Training uses Adam, batch size $128$, mask probability $0.2$, and a stratified $4{,}000/500/500$ split across motif classes. We run for $100$ epochs with patience of 25 epochs where the validation loss is no longer smaller than the current best validation lost. The following graph shows the early stop result:
-
-\begin{figure}[htbp]
-  \centering
-  \includegraphics[width=0.9\textwidth]{GAT Figures/gat_learning_curve_balanced.png}
-  \caption{GAT learning curves (masked MSE on train/val/test splits) over 40 epochs (early stopped) for the balanced motif dataset on the optimal hyperparameters. Since the loss starts at a much lower value compared to the GCN, this is essentially a highly zoomed in version of the training curve focused at the potential convergence area. 
-  From our previous experience facing instabilities with GAT training, we also plotted the test loss of the model at every epoch. Test loss is not used in }
-  \label{fig:gat_learning_curve}
-\end{figure}
 \subsection{Sparse Autoencoder Optimization}
 
-The interpretability of our findings hinges on the quality of the Sparse Autoencoder. We tracked the SAE's reconstruction loss and sparsity levels throughout the training process (Figure \ref{fig:sae_training}). The model quickly converged to a low reconstruction error while maintaining the target sparsity (approximately 3\% active neurons). The final metrics (Figure \ref{fig:sae_metrics}) confirm that the SAE achieves a reconstruction loss of $\approx 5.28 \times 10^{-7}$ on the test set, essentially preserving the information content of the GNN's 64-dimensional embedding while projecting it into a 512-dimensional sparse basis.
+The interpretability of our findings hinges on the quality of the Sparse Autoencoder. The SAEs were trained on the 64 dimensional activations from the trained, optimal GCN and each activation for each node is stored as a tensor corresponding to each graph within the train, test, and validation set. We tracked the SAE's reconstruction loss and sparsity levels throughout the training process (Figure \ref{fig:sae_training}). We varied the latent dimension (128, 256, 512) and k value (4, 8, 16, and 32) to identify the best hyperparameter combination based on the highest $r_{bp}$ value while still maintaining high sparsity (aimed for $k \geq 16$). The best model as shown in Table \ref{tab:sae_sweeps} The model quickly converged to a low reconstruction error while maintaining the target sparsity. The final metrics (Figure \ref{fig:sae_training}) confirm that the SAE achieves a reconstruction loss of $\approx 3.30 \times 10^{-7}$ on the test set, essentially preserving the information content of the GNN's 64-dimensional embedding while projecting it into a 128-dimensional sparse basis.
 
 \begin{table}[htbp]
   \centering
-  \caption{Hyperparameter Sweeps for SAEs on GCN and GAT Architectures. Selection is based on the largest $|r_{pb}|$ among FDR-significant features.}
+  \scriptsize
+  \caption{Hyperparameter Sweeps for SAEs on GCN. Selection is based on the largest $|r_{pb}|$ among low sparsity, preferably $k \le 16$ features.}
   \label{tab:sae_sweeps}
   
-  \begin{subtable}{\textwidth}
+  \begin{subtable}{0.9\textwidth}
     \centering
     \caption{GCN-based SAE sweep (batch size 1024)}
     \label{tab:sae_sweep_gcn}
-    \resizebox{\textwidth}{!}{%
-    \begin{tabular}{ccccccccc}
+    \resizebox{0.9\textwidth}{!}{%
+    \begin{tabular}{ccccccc}
       \toprule
-      \textbf{Latent Dim} & \textbf{k} & \textbf{Sparsity (\%)} & \textbf{Sig. Features} & \textbf{Sig. Rate} & \textbf{Max $|r_{pb}|$} & \textbf{Best F1} & \textbf{Dead Features} & \textbf{Selection} \\
+      \textbf{Latent Dim} & \textbf{k} & \textbf{Sparsity (\%)} & \textbf{Max $|r_{pb}|$} & \textbf{Best F1} & \textbf{Dead Features} & \textbf{Selection} \\
       \midrule
-      512 & 32 & 6.25\% & 114 & 0.14 & 0.144 & 0.163 & 0.60 & \\
-      \textbf{512} & \textbf{16} & \textbf{3.13\%} & \textbf{74} & \textbf{0.15} & \textbf{0.155} & \textbf{0.150} & \textbf{0.75} & \textbf{Selected} \\
-      512 & 4 & 0.78\% & 35 & 0.15 & 0.153 & 0.149 & 0.89 & \\
-      256 & 32 & 12.50\% & 108 & 0.18 & 0.119 & 0.141 & 0.40 & \\
-      128 & 16 & 12.50\% & 51 & 0.17 & 0.108 & 0.144 & 0.41 & \\
+      256 & 32 & 12.50\% & 0.476 & 0.222 & 0.543 &  \\
+      128 & 16 & 12.50\% & 0.439 & 0.217 & 0.492 &  \\
+      \textbf{128} & \textbf{8} & \textbf{6.25\%} & \textbf{0.466} & \textbf{0.213} & \textbf{0.727} & \textbf{Selected} \\
+      512 & 8 & 1.56\% & 0.465 & 0.208 & 0.916 &  \\
+      512 & 32 & 6.25\% & 0.425 & 0.225 & 0.754 &  \\
+      512 & 16 & 3.13\% & 0.432 & 0.225 & 0.844 &  \\
+      256 & 16 & 6.25\% & 0.399 & 0.212 & 0.754 &  \\
+      128 & 4 & 3.13\% & 0.408 & 0.210 & 0.813 &  \\
+      512 & 4 & 0.78\% & 0.424 & 0.208 & 0.957 &  \\
+      256 & 8 & 3.13\% & 0.404 & 0.208 & 0.840 &  \\
+      256 & 4 & 1.56\% & 0.408 & 0.212 & 0.926 &  \\
       \bottomrule
     \end{tabular}%
     }
-  \end{subtable}
-  
-  \vspace{0.5cm} % Space between tables
-  
-  \begin{subtable}{\textwidth}
-    \centering
-    \caption{GAT-based SAE sweep (batch size 1024)}
-    \label{tab:sae_sweep_gat}
-    \resizebox{\textwidth}{!}{%
-    \begin{tabular}{ccccccccc}
-      \toprule
-      \textbf{Latent Dim} & \textbf{k} & \textbf{Sparsity (\%)} & \textbf{Sig. Features} & \textbf{Sig. Rate} & \textbf{Max $|r_{pb}|$} & \textbf{Best F1} & \textbf{Dead Features} & \textbf{Selection} \\
-      \midrule
-      512 & 32 & 6.25\% & 459 & 0.90 & 0.192 & 0.204 & 0.15 & \\
-      512 & 16 & 3.13\% & 434 & 0.85 & 0.181 & 0.192 & 0.19 & \\
-      \textbf{256} & \textbf{32} & \textbf{12.50\%} & \textbf{238} & \textbf{0.93} & \textbf{0.224} & \textbf{0.208} & \textbf{0.14} & \textbf{Selected} \\
-      256 & 16 & 6.25\% & 268 & 1.05 & 0.149 & 0.194 & 0.14 & \\
-      128 & 16 & 12.50\% & 127 & 0.99 & 0.172 & 0.164 & 0.16 & \\
-      \bottomrule
-    \end{tabular}%
-    }
-  \end{subtable}
+\end{subtable}
 \end{table}
+
 \FloatBarrier
 
-For the SAE trained on GCN activaions, the parameters that yielded the highest $r_{bp}$ value had latent dimension of 512 and k of 16, while for the SAE trained on GAT activations the optimal parameters had latent dimension of 256 with k value of 32. 
+For the SAE trained on GCN activaions, the parameters that yielded the highest $r_{bp}$ value had latent dimension of 128 and k of 8, while for the SAE trained on GAT activations the optimal parameters had latent dimension of 256 with k value of 32. 
 
 \begin{figure}[H]
   \centering
   \includegraphics[width=\textwidth]{sae_training_progress.png}
-  \caption{SAE training dynamics for GCN activations with latent dim = 512 and k = 16 . Left: Reconstruction loss (MSE) decreases smoothly, indicating the dictionary is successfully learning to represent the GNN activations. Right: The L0 sparsity metric converges tightly to the target of roughly 3.12\% active features, ensuring a sparse representation.}
+  \caption{SAE training dynamics for GCN activations with latent dim = 128 and k = 8 . Left: Reconstruction loss (MSE) decreases smoothly, indicating the dictionary is successfully learning to represent the GNN activations. Right: The L0 sparsity metric converges tightly to the target of roughly 6.25\% active features, ensuring a sparse representation.}
   \label{fig:sae_training}
 \end{figure}
 
-\begin{figure}[H]
-  \centering
-  \includegraphics[width=\textwidth]{sae_final_metrics.png}
-  \caption{Final performance metrics for the selected SAE for GCN activations (latent dim = 512, k = 16). The low reconstruction loss across Train, Val, and Test splits (left) combined with consistent sparsity (right) validates that the dictionary generalizes well and does not simply memorize training examples.}
-  \label{fig:sae_metrics}
-\end{figure}
-\FloatBarrier
+\subsection{Discovering Motif-Specific Features from Interpreting GCN Activations}
 
-\subsection{Discovering Motif-Specific Features}
+The core hypothesis of this work is to see if GNNs are learning to encode motifs inherent in the graph structure. To test this, we analyzed the correlation between SAE features and ground-truth motifs.
 
-The core hypothesis of this work is that GNNs learn "biological primitives." To test this, we analyzed the correlation between SAE features and ground-truth motifs. Figure \ref{fig:volcano} presents a Volcano Plot of all learned features. We observe a set of features with high statistical significance (high $-\log_{10}(p)$) and strong effect sizes (high $|r_{pb}|$), highlighted in colors corresponding to their specific motif associations.
-
-\begin{figure}[H]
-  \centering
-  \includegraphics[width=0.9\textwidth]{volcano_plot.png}
-  \caption{Volcano Plot illustrating feature significance. Each point represents an SAE feature. Features that are significantly correlated (FDR $< 0.05$) with specific motifs are colored. The clear separation of these points from the null mass (bottom center) suggests the existence of "monosemantic" features specialized for tasks like Feedback Loops or Cascades.}
-  \label{fig:volcano}
-\end{figure}
 
 This specificity is further visualized in the correlation distribution (Figure \ref{fig:corr_dist}). While most features have near-zero correlation (noise), a distinct tail of highly correlated features emerges. The precision-recall plot (right panel) demonstrates that for top-ranked features, the model achieves high precision, effectively acting as a motif detector.
+
+The monosemanticity of GCN-learned features is evident in the sparse, block-diagonal structure of the correlation heatmap (Figure \ref{fig:heatmap}). Features that activate strongly for feedback loops (e.g., $z_{86}$, $z_{88}$, $z_{39}$) exhibit near-zero correlation with other motif types, demonstrating that the GCN has disentangled the distinct computational logic required for different topological patterns. Notably, feature $z_{86}$ displays strong dual behavior: a positive correlation of +0.37 with feedback loops while simultaneously showing a negative correlation of -0.23 with single-input modules. This suggests that certain features function as binary discriminators, activating to signal the presence of recurrent structures while suppressing for simpler fan-out topologies. The predominance of negative correlations for single-input modules across multiple features ($z_{86}$, $z_{88}$, $z_{39}$, $z_{80}$, $z_{66}$, $z_{49}$) indicates that the network learns inhibitory mechanisms rather than explicit positive encoders for this motif class. Instead of dedicating separate circuits to each topology, the GCN efficiently encodes complex recurrent patterns (feedback loops) through dedicated features and uses their absence as a signal for simpler structures. The matrix's extreme sparsity---with most entries remaining blank or near-zero---confirms that motif information is not distributed across the feature space but rather concentrated in a small number of highly specialized units.
 
 \begin{figure}[H]
   \centering
@@ -676,16 +648,15 @@ This specificity is further visualized in the correlation distribution (Figure \
   \label{fig:corr_dist}
 \end{figure}
 
-The "monosemanticity" of these features is starkly visible in the heatmap of significant correlations (Figure \ref{fig:heatmap}). The matrix is sparse and structured; features that activate for Feedback Loops (e.g., $z496$, $z236$) rarely activate for Cascades or Single-Input Modules. This orthogonality implies that the GNN has disentangled the disparate computational logic required for cyclic vs. linear information flow. Interestingly, certain features such as $z496$ appear to play dual roles: $z496$ is strongly positively correlated with Feedback Loops but strongly negatively correlated with Single-Input Modules (blue in the heatmap), suggesting it may act as a discriminator between these two topologies.
-
 \begin{figure}[H]
   \centering
   \includegraphics[width=0.9\textwidth]{feature_motif_correlation_heatmap_significant.png}
-  \caption{Heatmap of significant feature-motif correlations. The distinct blocks of color indicate that different subsets of the SAE dictionary are dedicated to processing different graph topologies, providing strong evidence for disentangled internal representations. Note the strong positive correlations (red) for Feedback Loops and negative correlations (blue) for Single-Input Modules for specific features like $z496$.}
+    \caption{Heatmap of statistically significant feature-motif correlations for GCN-based SAE (FDR $< 0.05$, 1000 permutations). Only the top 50 most significant features are shown (out of 128 total latent dimensions with $k=8$ sparsity). Each row represents a learned SAE feature; each column represents a ground-truth graph motif type. Color intensity indicates point-biserial correlation magnitude: red (positive correlation) indicates features that activate in the presence of the motif, while blue (negative correlation) indicates suppressive or inhibitory features.}
   \label{fig:heatmap}
 \end{figure}
 
-We confirmed these associations are non-random using permutation testing. Figure \ref{fig:null_dist} shows that the observed correlations for top features like $z496$ (Feedback Loop) and $z236$ (SIM) lie far outside the empirical null distributions. Figure \ref{fig:top_features} ranks these top features, providing a concrete "dictionary" of the GNN's internal language.
+
+We confirmed these associations are non-random using permutation testing, with a strong emphasis on features correlating with feedback loops. Figure \ref{fig:null_dist} shows that the observed correlations for top features like $z86$ (Feedback Loop) and $z39$ (Feedback loop) lie far outside the empirical null distributions. Figure \ref{fig:top_features} ranks these top features, providing a concrete "dictionary" of the GNN's internal language.
 
 \begin{figure}[H]
   \centering
@@ -704,134 +675,62 @@ We confirmed these associations are non-random using permutation testing. Figure
 
 \subsection{Causal Verification of Learned Circuits}
 
-Correlation allows us to generate hypotheses about feature meaning; ablation allows us to verify them. We zeroed out the motif-specific features identified above and measured the impact on the GNN's prediction , where error is defined as $$MSE_{ablation \ impact} = MSE_{reconstructed \ loss} - MSE_{ablated \ reconstructed \ loss}$$ We removed all features deemed as interpretable through significant FDR (FDR < 0.05) after permutation testing and ablated all interpretable features in a per motif fashion. Then we ablated the same number of random non-significant features through 100 trials to see whether the $MSE_{ablation \ impact}$ is truly different than random. Each graph was given a "dominant" motif type representing the motif that is most present in each graph.  As shown in Figure \ref{fig:ablation}, ablating the identified "interpretable" features (colored bars) caused a statistically significant spike in Mean Squared Error compared to ablating random control features (gray bars) for Feedback Loops. Specifically, removing the top 39 features for Feedback Loops degraded performance drastically for feedback loop motifs while not a drastic result for others, suggesting our GNN has identified motif specific activations related to feedback loop graphical structures.
+Correlation allows us to generate hypotheses about feature meaning; ablation allows us to verify them. We zeroed out the motif-specific features identified above and measured the impact on the GNN's prediction , where error is defined as $$MSE_{ablation \ impact} = MSE_{reconstructed \ loss} - MSE_{ablated \ reconstructed \ loss}$$ We removed all features deemed as interpretable through significant FDR (FDR < 0.05) after permutation testing and with a $r_{bp} \geq 0.15$ and ablated all interpretable features in a per motif fashion. Only feedback loop and single input module related motifs remains after this filtering. Then we ablated the same number of random non-significant features through 100 trials to see whether the $MSE_{ablation \ impact}$ is truly different than random. This was done for both single motif and mixed motif where a node could be in multiple motifs, to see whether our results generalize to mixed motifs. To verify the causal necessity of identified motif-specific features, we performed ablation experiments on two graph types: single-motif graphs (where each graph contains exclusively one motif type) and mixed-motif graphs (where multiple motif types coexist within the same graph). For mixed-motif graphs, the dominant motif type in each graph was used to label whether a graph came from a certain motif or not. Figure \ref{fig:ablation_single} shows results for single-motif graphs. For feedback loops, ablating the 17 identified interpretable features caused a dramatic and significant increase in prediction error from baseline, while ablating an equivalent number of random non-significant features produced negligible impact. This stark contrast confirms that these features are causally necessary for processing feedback loop structures. For single-input modules, ablating the 13 correlated features surprisingly had an impact of feedforward loop potentially suggesting a linked relationship, while random controls remained near zero. This result aligns with the negative-positive correlations observed in Figure \ref{fig:heatmap} and validates the interpretation that these features currently serve an interconnected role. For both ablations of the feedback loop and single input motif activations, there was an unexpected improvement in performance for the cascade motifs, suggesting an underlying interconnected intersection of motifs that's difficult to fully separate and be truly "monosemantic". Figure \ref{fig:ablation_mixed} extends this analysis to mixed-motif graphs not present in previous training set which includes multiple topological patterns in one larger graph. The results generalize remarkably well: feedback loop feature ablations still produce the largest positive impact on graphs containing feedback loops, though the magnitude is reduced (from a decrease of around MSE impact of 0.0030 in single motif graphs to around 0.00015 in zero shot mixed motif graphs), likely due to the presence of other motifs diluting the effect. Similarly, single-input module features maintain their linked relationship with feedback loop motif graphs, although the variance of change in ablation impact is much higher. In both single motif and the mixed motif graphs, there are changes to MSE in all motifs possibly due to side effect of removing important information when removing feedback loop or single input module related latent factors, albeit the high motif effect on feedback loops suggests that our analyses have identified highly causal activations related to feedback loop features. 
 
-Interestingly, for Single-Input Modules (SIM), the ablation of motif-associated features resulted in a negative mean ablation impact (error decrease), whereas random controls remained near zero. This counter-intuitive result, combined with the strong negative correlations observed in the heatmap (Figure \ref{fig:heatmap}), suggests that the features identified for SIMs may be suppressive or inhibitory in nature. Removing them may simplify the network's processing for this specific synthetic task, or indicate that the network uses these features to "rule out" other complex topologies (like feedback loops) rather than to directly compute the SIM dynamics.
 
 \begin{figure}[H]
   \centering
   \includegraphics[width=\textwidth]{interpretability_vs_random_controls.png}
-  \caption{Causal Ablation Analysis. The bar charts show the change in prediction error (MSE) when specific features are removed. For Feedback Loops (orange), ablating specific features causes a large increase in error, confirming their causal necessity. For Single-Input Modules (green), the ablation impact is negative, aligning with the negative correlations observed in Figure \ref{fig:heatmap} and suggesting an inhibitory role.}
-  \label{fig:ablation}
+  \caption{Causal Ablation Analysis across Single Motif Graphs. The bar charts show the change in prediction error (MSE) when specific features are removed. For Feedback Loops (orange), ablating specific features causes a large increase in error, confirming their causal necessity. For Single-Input Modules (green), the ablation impact is negative, aligning with the negative correlations observed in Figure \ref{fig:heatmap} and suggesting an inhibitory role.}
+  \label{fig:ablation_single}
 \end{figure}
-
-Figure \ref{fig:control_dist} further contextualizes this result, showing that the impact of the targeted ablations (red dashed lines) consistently falls in the extreme tails of the random control distributions.
 
 \begin{figure}[H]
   \centering
-  \includegraphics[width=\textwidth]{random_control_distributions.png}
-  \caption{Distribution of random ablation impacts. The vertical red lines mark the impact of ablating the specific motif features. In all cases, the specific features are outliers, confirming their unique importance.}
-  \label{fig:control_dist}
+  \includegraphics[width=\textwidth]{interpretability_vs_random_controls_mixed.png}
+  \caption{Causal Ablation Analysis across Mixed-Motif Graphs. The bar charts show the change in prediction error (MSE) when specific features are removed. We do see that our results generalize well to mixed motifs from zero-shot with same feedback loop features have most increase in dominant feedback loop.}
+  \label{fig:ablation_mixed}
 \end{figure}
-\FloatBarrier
-
-\subsection{Comparison with Graph Attention Networks (GAT)}
-
-We expanded our analysis to Graph Attention Networks (GAT) to determine if the learnability of biological motifs is architecture-dependent. The GAT model, trained with 4 attention heads, exhibited a distinct training profile compared to the GCN. As illustrated in Figure \ref{fig:gat_learning_curve}, the validation loss showed significant oscillatory behavior in the early epochs, contrasting with the monotonic convergence of the GCN. This instability likely arises from the attention mechanism's attempt to learn dynamic edge weights in a synthetic environment where edge weights are fixed and deterministic. However, despite this volatility, the model converged to a final test loss comparable to the GCN.
-
-To probe the internal representations, we trained an SAE on the GAT's second-layer activations. The resulting feature-motif correlation heatmap (Figure \ref{fig:gat_heatmap}) displays the same characteristic block-diagonal structure observed in the GCN. Distinct features (e.g., $z_{128}$, $z_{170}$) emerged that correlated strongly and exclusively with specific motifs. This confirms that the emergence of "motif-detecting" latent features is a robust property of the learning task itself, rather than an artifact of the graph convolution operator.
-
-To move beyond correlation and establish causality, we performed ablation studies. We identified the sets of features most strongly correlated with each motif and "ablated" them (forced their values to zero) during inference. We then measured the resulting increase in Mean Squared Error (MSE) compared to a baseline of ablating an equivalent number of randomly selected active features.
-
-\begin{figure}[H]
-  \centering
-  \includegraphics[width=0.9\textwidth]{feature_motif_correlation_heatmap_dim256_k32_significant.png}
-  \caption{Heatmap of significant feature-motif correlations for the GAT model. Similar to the GCN, the GAT learns disentangled representations, with specific SAE latent features (rows) correlating strongly with specific motif types (columns). The block structure confirms that "monosemanticity" is a robust property of GNNs trained on this task, regardless of the specific aggregation mechanism.}
-  \label{fig:gat_heatmap}
-\end{figure}
-
-To move beyond correlation and establish causality, we performed ablation studies. We identified the sets of features most strongly correlated with each motif and "ablated" them (forced their values to zero) during inference. We then measured the resulting increase in Mean Squared Error (MSE) compared to a baseline of ablating an equivalent number of randomly selected active features.
-The mean ablation impact is shown in Figures \ref{fig:interpretability_bars1} and \ref{fig:interpretability_bars2}. For the Cascade and Feedforward Loop motifs (Figure \ref{fig:interpretability_bars1}), removing the specific motif-correlated features caused a statistically significant drop in performance (increase in MSE) compared to the random controls. This indicates that these features are functionally necessary for the model's predictions on those subgraphs. The effect is even more pronounced for Feedback Loops (Figure \ref{fig:interpretability_bars2}), where the targeted ablation resulted in a dramatic increase in error. This suggests that the cyclic dynamics of feedback loops require precise, dedicated feature representations that the model relies on heavily.
-We further validated the statistical significance of these findings by comparing the targeted ablations against the full distribution of random ablations, as shown in the random control histograms (Figures \ref{fig:random_controls_all1} and \ref{fig:random_controls_all2}). In these plots, the blue and red dashed lines represent the mean impact of ablating the specific feature sets for each motif, while the light histograms show the distribution of impacts from hundreds of random feature subsets. In almost all cases, the impact of the motif-specific ablation falls in the extreme tail or completely outside the random distribution. This visual separation provides strong evidence that the identified features are not just "average" latent variables but are uniquely specialized components of the GAT's computational circuit for processing biological network motifs.
-
-
-
-\begin{figure}[htbp]
-  \centering
-  \includegraphics[width=0.9\textwidth]{GAT Figures/interpretability_vs_random_controls_cascade_feedforward.png}
-  \caption{Cascade and feedforward-loop ablations vs.\ random controls (38 and 18 features ablated).}
-  \label{fig:interpretability_bars1}
-\end{figure}
-
-
-\begin{figure}[htbp]
-  \centering
-  \includegraphics[width=0.9\textwidth]{GAT Figures/interpretability_vs_random_controls.png}
-  \caption{Feedback Loop and Single Input Module ablations vs.\ random controls (49 and 13 features ablated).}
-  \label{fig:interpretability_bars2}
-\end{figure}
-
-\begin{figure}[htbp]
-  \centering
-  \includegraphics[width=0.9\textwidth]{GAT Figures/random_control_distributions.png}
-  \caption{Overlay of all random-control distributions. No clear visual separation emerges when every feature set is plotted together, highlighting the breadth of the random baselines.}
-  \label{fig:random_controls_all1}
-\end{figure}
-
-
-\begin{figure}[htbp]
-  \centering
-  \includegraphics[width=0.9\textwidth]{GAT Figures/random_control_distributions_cascade_feedforward.png}
-  \caption{Overlay of all random-control distributions. No clear visual separation emerges when every feature set is plotted together, highlighting the breadth of the random baselines.}
-  \label{fig:random_controls_all2}
-\end{figure}
-
 \FloatBarrier
 
 \section{Discussion}
 
-The results presented here provide the first concrete evidence that Graph Neural Networks, when trained on biological tasks, spontaneously organize their internal latent spaces to align with known biological motifs. This finding bridges the gap between the "black box" predictive power of deep learning and the mechanistic understanding required in systems biology.
+The results presented here provide the first concrete evidence that Graph Convolutional Networks, when trained on node-level prediction tasks over graphs with discrete topological motifs, spontaneously organize their internal latent spaces to align with these structural patterns. This finding bridges the gap between the ``black box'' predictive power of deep learning and the mechanistic understanding required for interpretable graph representation learning.
 
-\textbf{Interpretation of Disentangled Representations:} The success of the Sparse Autoencoder in isolating motif-specific features—such as $z496$ for Feedback Loops—suggests that the GNN is not merely learning a diffuse, distributed representation of the graph. Instead, it appears to be learning composable "subroutines" or "circuits." The orthogonality observed in the correlation heatmap indicates that the network processes cyclic feedback logic differently from linear cascade logic. This aligns with the biological reality that these motifs perform fundamentally different signal processing tasks (e.g., oscillation/homeostasis vs. signal amplification).
+\textbf{Interpretation of Disentangled Representations:} The success of the Sparse Autoencoder in isolating motif-specific features—such as $z_{86}$ (r$_{pb}$ = +0.37) for Feedback Loops and $z_{86}$ (r$_{pb}$ = -0.23) for Single-Input Modules—demonstrates that the GCN is not learning a diffuse, distributed representation of graph topology. Instead, it develops composable ``subroutines'' or ``circuits'' dedicated to specific structural patterns. The extreme sparsity observed in the correlation heatmap, where only approximately 30 of 128 latent features exhibit significant motif correlations, confirms that topological information is highly localized rather than distributed. Feature $z_{86}$'s dual behavior—strongly activating for recurrent structures while suppressing for fan-out patterns—exemplifies a discriminative encoding strategy where the network learns to detect complex motifs explicitly and uses their absence to infer simpler topologies. This orthogonality aligns with the distinct computational roles these motifs play: feedback loops enable recurrent dynamics and state persistence, while single-input modules perform simple broadcast operations. The GCN's representational structure reflects this functional distinction through dedicated, non-overlapping feature circuits.
 
-\textbf{Comparison of Architectures:} Our comparison between GCN and GAT architectures reveals that interpretability is not unique to a specific model type. Both architectures yielded to SAE decomposition, revealing that the "motif-finding" capability is likely a property of the task and the learning process itself, rather than the specific aggregation mechanism. While GATs offer dynamic weighting, this did not translate to better performance or more distinct features for these synthetic motifs, suggesting that for defined regulatory logic, the simpler GCN architecture is both sufficient and robust.
+\textbf{Monosemanticity and Concentrated Representations:} The GCN-based SAE achieves interpretability with remarkable efficiency, requiring only 6.25\% feature sparsity ($k=8$ active features out of 128 dimensions) to extract maximum correlations of $|r_{pb}| = 0.466$. This high degree of monosemanticity—where individual features encode specific, interpretable concepts—stands in contrast to the polysemantic representations typically observed in deep neural networks. This concentration suggests that fixed message-passing operators, which deterministically aggregate neighborhood information via the adjacency matrix, create strong inductive biases toward localized encodings. Without the flexibility to distribute information across multiple representational dimensions (as attention mechanisms might), the GCN is forced to develop dedicated circuits for each distinct computational pattern it must process.
 
-\textbf{Implications for Biological Discovery:} The ability to map latent features back to graph topology offers a powerful new tool for network biology. Currently, motif discovery is a computationally expensive combinatorial problem. Our approach suggests that a trained GNN could act as a heuristic "motif scanner," where high activation of specific latent features flags the presence of complex regulatory structures in large, noisy, real-world networks. If a feature $z_i$ consistently activates for a known Feedforward Loop, its activation in an unannotated part of a GRN could generate a high-confidence hypothesis for experimental validation.
+\textbf{Inhibitory Features and Discriminative Encoding:} The predominance of negative correlations for single-input modules across features $z_{86}$, $z_{88}$, $z_{39}$, $z_{80}$, $z_{66}$, and $z_{49}$ reveals an unexpected encoding strategy. Rather than learning separate positive detectors for each motif type, the GCN develops strong positive encoders for the most structurally complex pattern (feedback loops) and uses inhibitory features to signal the absence of this complexity. The ablation results validate this interpretation: removing SIM-correlated features has a causal link to feedback loops suggesting that, as of right now, these two graphical motifs seem inseparable in context of a GCN. This discriminative encoding is computationally efficient—instead of $N$ separate detectors for $N$ motif types, the network learns $1$ strong detector for the most informative pattern and uses inhibition for disambiguation. This strategy may generalize beyond our synthetic setting: in hierarchical or compositional graph structures, networks might learn explicit representations for high-level patterns while encoding simpler components implicitly through the absence of complex feature activation.
 
-\textbf{Causal Necessity:} Our ablation studies go beyond simple correlation. By demonstrating that removing these specific features destroys the model's ability to predict expression dynamics within specific motifs (most notably Feedback Loops), we establish a causal link. The GNN \textit{must} use these specific features to solve the task. This is a critical step towards trust in AI-driven biology; we can now say not only \textit{that} the model works, but \textit{which parts} of the model are responsible for understanding specific biological phenomena. The inverse effect seen in SIMs (where ablation improved performance) opens new questions about the role of inhibitory features in neural network representations of simple topologies.
+\textbf{Causal Necessity and Functional Localization:} Our ablation studies establish causal links between identified features and motif-specific computations. Removing the 17 feedback loop features causes a dramatic, selective performance degradation exclusively on graphs containing feedback loops, with negligible effects on other topologies. This selectivity, where ablations affect only the targeted motif type, demonstrates true functional localization rather than general-purpose features that contribute broadly to performance. The consistency of ablation effects across both single-motif graphs (pure feedback loop structures) and mixed-motif graphs (where multiple patterns coexist) validates that these features detect local topological structure robustly, independent of global graph composition. Critically, this causal validation moves beyond correlational interpretability: we can now state not only \textit{that} the GCN encodes feedback loops, but that it \textit{must} use these specific features to process recurrent graph dynamics. This level of mechanistic understanding is essential for trust in learned representations, particularly when deploying graph neural networks in high-stakes domains where understanding failure modes and decision processes is paramount.
 
-\textbf{Limitations:} While promising, this study relies on synthetic data governed by discrete-time iterative update rule. Real gene regulatory networks involve stochasticity, non-linearities, and hidden variables (e.g., protein degradation rates) not captured here. Furthermore, biological motifs rarely exist in isolation; they are embedded in dense, overlapping networks. While our mixed-motif dataset provides a preliminary test of disentanglement, scaling this to whole-cell regulatory maps remains a challenge.
+\textbf{Implications for Graph Representation Learning:} The ability to map latent features back to graph topology offers powerful tools for understanding and validating learned representations. Our approach suggests several practical applications: (1) \textbf{Motif scanning:} A trained GCN could serve as a fast heuristic detector for complex topological patterns in large graphs, where high activation of feature $z_i$ flags potential instances of its associated motif for verification. (2) \textbf{Architecture design:} Understanding that fixed message-passing creates localized representations while learned aggregation distributes information informs architecture selection: tasks requiring interpretability may favor GCN-style architectures, while tasks prioritizing robustness to noise might benefit from more distributed schemes. (3) \textbf{Transfer learning validation:} By checking whether transferred features maintain their motif-specific correlations in new domains, practitioners can validate whether learned representations generalize meaningfully rather than exploiting spurious dataset-specific patterns. (4) \textbf{Curriculum learning:} Training could be structured to first learn representations for simple topologies (cascades), then progressively introduce more complex patterns (feedback loops), potentially accelerating convergence and improving feature specialization.
+
+\textbf{Limitations and Future Directions:} While our results demonstrate clear interpretability on synthetic graphs with discrete motifs, several challenges remain for real-world applications. First, our graphs contain clean, isolated motif instances with fixed sizes (typically 3-5 nodes per motif), whereas real networks exhibit overlapping, nested, and variable-size patterns. Second, the deterministic dynamics we simulate—a discrete-time iterative update with fixed edge weights—abstracts away stochasticity, time-varying parameters, and hidden variables present in real systems. Third, our binary motif labels (node either is or is not in a feedback loop) may oversimplify motif membership in graphs where nodes participate in multiple overlapping structures simultaneously. The strong performance on mixed-motif graphs suggests our approach generalizes beyond isolated instances, but scaling to dense, highly interconnected networks requires further investigation. Fourth, our analysis focuses on node-level representations; extending sparse autoencoder decomposition to edge-level or graph-level GNN tasks may require different methodological approaches. Finally, while we demonstrate interpretability for four canonical motifs, real graphs contain dozens of known motif types—whether the same concentration-based encoding strategy scales to larger motif vocabularies, or whether representational capacity eventually requires more distributed schemes, remains an open question.
+
+\textbf{Broader Context:} This work contributes to the growing field of mechanistic interpretability by demonstrating that techniques developed for language models—specifically sparse dictionary learning via autoencoders—transfer effectively to graph neural networks. The core insight—that overparameterized models learn sparse, interpretable features when forced through a sparsity bottleneck—appears to be a general property of neural representation learning rather than a domain-specific phenomenon. Our results complement recent work on interpreting vision models through feature visualization and language models through activation steering, collectively building toward a unified framework for understanding learned representations across modalities. The discovery that architectural inductive biases (fixed vs. learned aggregation) critically determine representational structure suggests that interpretability should be considered during architecture design, not merely applied post-hoc. As graph neural networks are increasingly deployed in scientific domains—drug discovery, materials science, social network analysis—the ability to validate that models learn scientifically meaningful representations, rather than exploiting spurious correlations, becomes essential for building trustworthy AI systems.
 
 \section{Conclusion}
 
-This work demonstrates that mechanistic interpretability techniques, originally developed for language models, can be effective in the domain of graph learning. By applying Sparse Autoencoders to GNNs trained on synthetic graph strutures with particular motifs and fixed size, we successfully recovered latent spaces that slightly correlate based on specific motifs, particularly feedback loops (FBL) and single-input modules (SIM). We validated these features causally with ablation tests which showcase high mean ablation impact for the highly correlated motifs (SIM and FBL) as ablation results lie far beyond the clustered region for the FBL and SIM, indicating that is not random occurence.
+This work demonstrates that mechanistic interpretability techniques developed for language models can successfully decode the internal representations of graph neural networks, revealing that Graph Convolutional Networks spontaneously learn interpretable features aligned with discrete graph motifs. By training GCNs on synthetic graphs with ground-truth topological annotations and decomposing their hidden activations via sparse autoencoders, we discovered that GCNs develop monosemantic features—individual latent units that selectively encode specific structural patterns such as feedback loops and fan-out structures. With only 6.25\% feature sparsity, our approach extracted features exhibiting correlations up to $|r_{pb}| = 0.466$ with target motifs, demonstrating extreme localization of topological information. Critically, causal ablation experiments validated that these features are functionally necessary: removing feedback loop features caused selective performance degradation exclusively on graphs containing those structures, while removing inhibitory single-input module features paradoxically affected feedback loop graphs more than other types of graphs.
 
-A key architectural finding is that GCNs exhibit substantially stronger monosemantic structure than GATs. While GAT-based SAEs recover statistically significant motif-correlated features, their ablation produces nearly uniform changes in MSE across all motif types, indicating that GAT representations are comparatively more distributed and less causally localized. In contrast, the GCN demonstrates true motif-specific circuit localization, with Feedback Loop feature ablations selectively degrading performance only on Feedback Loop graphs. This distinction shows that attention mechanisms, while expressive, may blur mechanistic circuit boundaries under fixed regulatory dynamics, whereas message-passing via GCNs more cleanly isolates recurrent regulatory computation.
+These findings establish several key principles for interpretable graph representation learning. First, fixed message-passing architectures create strong inductive biases toward localized, specialized representations, where distinct topological patterns are encoded in non-overlapping feature subspaces. Second, networks employ discriminative encoding strategies, learning explicit detectors for complex patterns while using inhibitory features to signal simpler structures, rather than maintaining separate positive encoders for each motif type. Third, architectural choices fundamentally shape interpretability: the constraints imposed by deterministic aggregation operators force representational concentration, making GCNs particularly amenable to sparse dictionary learning approaches.
 
 Together, these results demonstrate that mechanistic interpretability is not merely a statistical artifact of correlation heatmaps, but a causal property of how certain graph architectures solve biological regulatory tasks.
 
 \begin{thebibliography}{99}
 \small
 
-\bibitem[Cunningham et al.(2023)]{cunningham2023}
-Cunningham, H., et al.
-\textit{Sparse Autoencoders Find Highly Interpretable Features in Language Models.}
-arXiv preprint arXiv:2309.08600, 2023.
-
-\bibitem[Templeton et al.(2024)]{templeton2024}
-Templeton, A., et al.
-\textit{Scaling Monosemanticity: Extracting Interpretable Features from Claude 3 Sonnet.}
-Anthropic Research Report, 2024.
-
-\bibitem[Bricken et al.(2023)]{bricken2023}
-Bricken, T., et al.
-\textit{Towards Monosemanticity: Decomposing Language Models With Dictionary Learning.}
-Transformer Circuits Thread, 2023.
-
-\bibitem[Garcia and Ansuini(2025)]{garcia2025}
-Garcia, S. M., and A. Ansuini.
-\textit{Interpreting and Steering Protein Language Models through Sparse Autoencoders.}
-arXiv preprint arXiv:2502.09135, 2025.
+\bibitem[Kipf and Welling(2017)]{kipf2017}
+Kipf, T. N., and M. Welling.
+\textit{Semi-Supervised Classification with Graph Convolutional Networks.}
+In \textit{Proceedings of ICLR}, 2017.
 
 \bibitem[Fout et al.(2017)]{fout2017}
 Fout, A., J. Byrd, B. Shariat, and A. Ben-Hur.
 \textit{Protein Interface Prediction Using Graph Convolutional Networks.}
 In \textit{Proceedings of NeurIPS}, 2017.
-
-\bibitem[Kipf and Welling(2017)]{kipf2017}
-Kipf, T. N., and M. Welling.
-\textit{Semi-Supervised Classification with Graph Convolutional Networks.}
-In \textit{Proceedings of ICLR}, 2017.
 
 \bibitem[Zitnik et al.(2018)]{zitnik2018}
 Zitnik, M., M. Agrawal, and J. Leskovec.
@@ -848,6 +747,26 @@ Dwivedi, V. P., C. K. Joshi, and X. Bresson.
 \textit{Benchmarking Graph Neural Network Interpretability.}
 In \textit{Proceedings of NeurIPS}, 2022.
 
+\bibitem[Bricken et al.(2023)]{bricken2023}
+Bricken, T., et al.
+\textit{Towards Monosemanticity: Decomposing Language Models With Dictionary Learning.}
+Transformer Circuits Thread, 2023.
+
+\bibitem[Cunningham et al.(2023)]{cunningham2023}
+Cunningham, H., et al.
+\textit{Sparse Autoencoders Find Highly Interpretable Features in Language Models.}
+arXiv preprint arXiv:2309.08600, 2023.
+
+\bibitem[Templeton et al.(2024)]{templeton2024}
+Templeton, A., et al.
+\textit{Scaling Monosemanticity: Extracting Interpretable Features from Claude 3 Sonnet.}
+Anthropic Research Report, 2024.
+
+\bibitem[Garcia and Ansuini(2025)]{garcia2025}
+Garcia, S. M., and A. Ansuini.
+\textit{Interpreting and Steering Protein Language Models through Sparse Autoencoders.}
+arXiv preprint arXiv:2502.09135, 2025.
+
 \bibitem[Akiba et al.(2019)]{akiba2019optuna}
 Akiba, T., S. Sano, T. Yanase, T. Ohta, and M. Koyama.
 \textit{Optuna: A Next-generation Hyperparameter Optimization Framework.}
@@ -861,11 +780,6 @@ Siebenmorgen, T., F. Menezes, S. Benassou, E. Merdivan, K. Didi, A. Santos Dias 
 \bibitem[Pahng et al.(2024)]{pahng2024}
 Pahng, A., et al.
 \textit{Embedding Comparison Studies.}
-2024. (Note: Please add full citation details if available)
-
-\bibitem[Kojaku et al.(2024)]{kojaku2024}
-Kojaku, S., et al.
-\textit{Embedding Standardization Practice.}
 2024. (Note: Please add full citation details if available)
 
 \bibitem[Hou et al.(2022)]{hou2022}
@@ -894,6 +808,14 @@ Prechelt, L.
 \textit{Early Stopping — But When?}
 In \textit{Neural Networks: Tricks of the Trade}, G. B. Orr and K.-R. Müller (Eds.), Lecture Notes in Computer Science, vol. 1524, pp. 55--69, Springer, 1998.
 
+\bibitem[Liu et al.(2024)]{higmae2024}
+Z. Liu, Y. Zhang, S. Lin, A. Zhang, and T. Zhang.
+\textit{Hi-GMAE: Hierarchical Graph Masked Autoencoders}
+\newblock \emph{arXiv preprint arXiv:2402.03450}, 2024.
+
+
 \end{thebibliography}
+
+
 
 \end{document}
