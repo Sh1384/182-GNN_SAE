@@ -1,7 +1,7 @@
 """
 GNN Training Module for Node Value Prediction
 
-Trains a two-layer Graph Convolutional Network (GCN) to predict missing node values
+Trains a four-layer Graph Neural Network (GCN or GAT) to predict missing node values
 from partially observed synthetic graphs. Saves trained models and layer activations
 for downstream interpretability analysis.
 """
@@ -233,12 +233,13 @@ class GraphDataset(Dataset):
 
 class GCNModel(nn.Module):
     """
-    Three-layer Graph Convolutional Network for node value prediction.
+    Four-layer Graph Convolutional Network for node value prediction.
 
     Architecture:
         - Layer 1: GCNConv(2 -> 128) + ReLU + Dropout (1-hop neighborhoods)
-        - Layer 2: GCNConv(128 -> 64) + ReLU + Dropout (2-hop neighborhoods)
-        - Layer 3: GCNConv(64 -> 1) (3-hop neighborhoods, final prediction)
+        - Layer 2: GCNConv(128 -> 128) + ReLU + Dropout (2-hop neighborhoods)
+        - Layer 3: GCNConv(128 -> 64) + ReLU + Dropout (3-hop neighborhoods)
+        - Layer 4: GCNConv(64 -> 1) (4-hop neighborhoods, final prediction)
     """
 
     def __init__(self, input_dim: int = 2, hidden_dim: int = 128,
@@ -248,8 +249,7 @@ class GCNModel(nn.Module):
 
         Args:
             input_dim: Input feature dimension
-            hidden_dim1: First hidden layer dimension
-            hidden_dim2: Second hidden layer dimension
+            hidden_dim: First and second hidden layer dimension
             output_dim: Output dimension
             dropout: Dropout probability
         """
@@ -257,18 +257,20 @@ class GCNModel(nn.Module):
 
         # Disable internal normalization to support signed edge weights
         self.conv1 = GCNConv(input_dim, hidden_dim, normalize=False)
-        self.conv2 = GCNConv(hidden_dim, 64, normalize=False)
-        self.conv3 = GCNConv(64, output_dim, normalize=False)
+        self.conv2 = GCNConv(hidden_dim, hidden_dim, normalize=False)
+        self.conv3 = GCNConv(hidden_dim, 64, normalize=False)
+        self.conv4 = GCNConv(64, output_dim, normalize=False)
         self.dropout = dropout
 
         # Storage for activations
         self.layer1_activations = None
         self.layer2_activations = None
         self.layer3_activations = None
+        self.layer4_activations = None
 
     def forward(self, data: Data, store_activations: bool = False) -> torch.Tensor:
         """
-        Forward pass through the 3-layer GCN.
+        Forward pass through the 4-layer GCN.
 
         Args:
             data: PyG Data object
@@ -298,32 +300,42 @@ class GCNModel(nn.Module):
 
         h2 = F.dropout(h2, p=self.dropout, training=self.training)
 
-        # Layer 3: GCNConv (3-hop neighborhoods, final prediction)
+        # Layer 3: GCNConv + ReLU + Dropout (3-hop neighborhoods)
         h3 = self.conv3(h2, edge_index, edge_weight=edge_weight)
+        h3 = F.relu(h3)
 
         if store_activations:
             self.layer3_activations = h3.detach()
 
-        return h3.squeeze(-1)
+        h3 = F.dropout(h3, p=self.dropout, training=self.training)
 
-    def get_activations(self) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+        # Layer 4: GCNConv (4-hop neighborhoods, final prediction)
+        h4 = self.conv4(h3, edge_index, edge_weight=edge_weight)
+
+        if store_activations:
+            self.layer4_activations = h4.detach()
+
+        return h4.squeeze(-1)
+
+    def get_activations(self) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
         """
         Get stored layer activations.
 
         Returns:
-            Tuple of (layer1_activations, layer2_activations, layer3_activations)
+            Tuple of (layer1_activations, layer2_activations, layer3_activations, layer4_activations)
         """
-        return self.layer1_activations, self.layer2_activations, self.layer3_activations
+        return self.layer1_activations, self.layer2_activations, self.layer3_activations, self.layer4_activations
 
 
 class GATModel(nn.Module):
     """
-    Three-layer Graph Attention Network for node value prediction.
+    Four-layer Graph Attention Network for node value prediction.
 
     Architecture:
         - Layer 1: Multi-head GATConv (2 -> 128) + ELU + Dropout (captures 1-hop)
-        - Layer 2: Multi-head GATConv (128 -> 64) + ELU + Dropout (captures 2-hop)
-        - Layer 3: Single-head GATConv (64 -> 1) (captures 3-hop, final prediction)
+        - Layer 2: Multi-head GATConv (128 -> 128) + ELU + Dropout (captures 2-hop)
+        - Layer 3: Multi-head GATConv (128 -> 64) + ELU + Dropout (captures 3-hop)
+        - Layer 4: Single-head GATConv (64 -> 1) (captures 4-hop, final prediction)
     """
 
     def __init__(self, input_dim: int = 2, hidden_dim: int = 32,
@@ -333,7 +345,6 @@ class GATModel(nn.Module):
 
         self.num_heads = num_heads
         self.hidden_dim = hidden_dim
-        #self.hidden_dim2 = hidden_dim2
         self.edge_dim = edge_dim
 
         # Layer 1: Multi-head attention (2 -> 32*4 = 128)
@@ -346,9 +357,18 @@ class GATModel(nn.Module):
             edge_dim=edge_dim
         )
 
-        # Layer 2: Multi-head attention (128 -> 64) --> To get 64 activations (same as GCN) for standardized and comparable SAE analysis
-        # Og GAT paper uses 8 hidden_dim and 8 heads (giving 64) so we are fixing second layer based on that
+        # Layer 2: Multi-head attention (128 -> 128)
         self.conv2 = GATConv(
+            hidden_dim * num_heads,
+            hidden_dim,
+            heads=num_heads,
+            dropout=dropout,
+            edge_dim=edge_dim
+        )
+
+        # Layer 3: Multi-head attention (128 -> 64) --> To get 64 activations (same as GCN) for standardized and comparable SAE analysis
+        # Og GAT paper uses 8 hidden_dim and 8 heads (giving 64) so we are fixing third layer based on that
+        self.conv3 = GATConv(
             hidden_dim * num_heads,
             8,
             8,
@@ -356,8 +376,8 @@ class GATModel(nn.Module):
             edge_dim=edge_dim
         )
 
-        # Layer 3: Single-head attention for output (64 -> 1)
-        self.conv3 = GATConv(
+        # Layer 4: Single-head attention for output (64 -> 1)
+        self.conv4 = GATConv(
             64,
             output_dim,
             heads=1,
@@ -372,6 +392,7 @@ class GATModel(nn.Module):
         self.layer1_activations = None
         self.layer2_activations = None
         self.layer3_activations = None
+        self.layer4_activations = None
 
     def forward(self, data: Data, store_activations: bool = False) -> torch.Tensor:
         x, edge_index = data.x, data.edge_index
@@ -412,14 +433,27 @@ class GATModel(nn.Module):
             edge_index,
             edge_attr=edge_attr
         )
+        h3 = F.elu(h3)
 
         if store_activations:
             self.layer3_activations = h3.detach()
 
-        return h3.squeeze(-1)
+        h3 = F.dropout(h3, p=self.dropout, training=self.training)
 
-    def get_activations(self) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
-        return self.layer1_activations, self.layer2_activations, self.layer3_activations
+        # Layer 4
+        h4 = self.conv4(
+            h3,
+            edge_index,
+            edge_attr=edge_attr
+        )
+
+        if store_activations:
+            self.layer4_activations = h4.detach()
+
+        return h4.squeeze(-1)
+
+    def get_activations(self) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
+        return self.layer1_activations, self.layer2_activations, self.layer3_activations, self.layer4_activations
 
 
 class GNNTrainer:
@@ -533,7 +567,7 @@ class GNNTrainer:
         print(f"Model saved to {path}")
 
     def extract_and_save_activations(self, data_loader: DataLoader,
-                                     output_dir: str, split_name: str, layer: int = 2):
+                                     output_dir: str, split_name: str, layer: int = 3):
         """
         Extract and save layer activations for all graphs.
 
@@ -541,7 +575,7 @@ class GNNTrainer:
             data_loader: DataLoader for graphs
             output_dir: Base output directory
             split_name: Name of data split (train/val/test)
-            layer: Which layer to save (1, 2, or 3). Default: 2 (second hidden layer)
+            layer: Which layer to save (1, 2, 3, or 4). Default: 3 (third hidden layer, 64-dim)
         """
         self.model.eval()
 
@@ -549,10 +583,11 @@ class GNNTrainer:
             1: Path(output_dir) / "activations" / "layer1_new" / split_name,
             2: Path(output_dir) / "activations" / "layer2_new" / split_name,
             3: Path(output_dir) / "activations" / "layer3_new" / split_name,
+            4: Path(output_dir) / "activations" / "layer4_new" / split_name,
         }
 
-        if layer not in [1, 2, 3]:
-            raise ValueError(f"layer must be 1, 2, or 3, got {layer}")
+        if layer not in [1, 2, 3, 4]:
+            raise ValueError(f"layer must be 1, 2, 3, or 4, got {layer}")
 
         layer_dir = layer_dirs[layer]
         layer_dir.mkdir(parents=True, exist_ok=True)
@@ -565,10 +600,10 @@ class GNNTrainer:
 
                 # Forward pass with activation storage
                 _ = self.model(batch, store_activations=True)
-                h1, h2, h3 = self.model.get_activations()
+                h1, h2, h3, h4 = self.model.get_activations()
 
                 # Select which layer to save
-                activations_map = {1: h1, 2: h2, 3: h3}
+                activations_map = {1: h1, 2: h2, 3: h3, 4: h4}
                 h_layer = activations_map[layer]
 
                 # Split batch back into individual graphs
@@ -884,7 +919,7 @@ def main(model_type: str = "GCN"):
     DEVICE = 'cuda' if torch.cuda.is_available() else 'cpu'
     BATCH_SIZE = 128  # From MISATO paper for QM graph tasks 
     NUM_EPOCHS = 100  # Standard epochs with early stopping (patience=25) to prevent overfitting
-    LEARNING_RATE = 0.014  # Standard learning rate for Adam optimizer with GNNs
+    LEARNING_RATE = 0.036  # Standard learning rate for Adam optimizer with GNNs
     MASK_PROB = 0.2  # Node masking probability for inductive learning task
                       # Selected to create moderate sparsity while maintaining sufficient signal
 
@@ -946,12 +981,18 @@ def main(model_type: str = "GCN"):
         )
         model_name = "gat_model.pt"
         print("\nInitialized GAT model (multi-head attention)")
-        print("  - Layer 1: 2 -> 16 x 4 heads = 64 dims")
-        print("  - Layer 2: 64 -> 1 (single-head)")
+        print("  - Layer 1: 2 -> 16 x 4 heads = 64 dims (1-hop)")
+        print("  - Layer 2: 64 -> 16 x 4 heads = 64 dims (2-hop)")
+        print("  - Layer 3: 64 -> 8 x 8 heads = 64 dims (3-hop)")
+        print("  - Layer 4: 64 -> 1 (single-head, 4-hop)")
     elif model_type_upper == "GCN":
-        model = GCNModel(input_dim=2, hidden_dim=88, output_dim=1, dropout=0.5)
+        model = GCNModel(input_dim=2, hidden_dim=80, output_dim=1, dropout=0.3)
         model_name = "gnn_model.pt"
         print("\nInitialized GCN model")
+        print("  - Layer 1: 2 -> 88 (1-hop)")
+        print("  - Layer 2: 88 -> 88 (2-hop)")
+        print("  - Layer 3: 88 -> 64 (3-hop)")
+        print("  - Layer 4: 64 -> 1 (4-hop)")
     else:
         raise ValueError(f"Unknown model type: {model_type}. Choose 'GCN' or 'GAT'.")
 
@@ -1002,11 +1043,13 @@ def main(model_type: str = "GCN"):
     _save_json(training_metrics, "outputs/training_metrics.json")
     print("Saved training metrics to outputs/training_metrics.json")
 
-    # Extract and save activations
-    print("\nExtracting activations...")
-    trainer.extract_and_save_activations(train_loader, "outputs", "train")
-    trainer.extract_and_save_activations(val_loader, "outputs", "val")
-    trainer.extract_and_save_activations(test_loader, "outputs", "test")
+    # Extract and save activations from all three hidden layers
+    print("\nExtracting activations from layers 1, 2, and 3...")
+    for layer in [1, 2, 3]:
+        print(f"  Extracting layer {layer} activations...")
+        trainer.extract_and_save_activations(train_loader, "outputs", "train", layer=layer)
+        trainer.extract_and_save_activations(val_loader, "outputs", "val", layer=layer)
+        trainer.extract_and_save_activations(test_loader, "outputs", "test", layer=layer)
 
     motif_metrics = {
         "train": _compute_motif_metrics(trainer, train_eval_loader),

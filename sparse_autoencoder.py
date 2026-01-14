@@ -460,7 +460,7 @@ def main():
     NUM_EPOCHS = 200  # Increased from 100
     LEARNING_RATE = 5e-4
 
-    INPUT_DIM = 64
+    INPUT_DIM = 80
 
     latent_dims = [128, 256, 512]
     k_values = [4, 8, 16, 32]
@@ -474,9 +474,9 @@ def main():
     print()
 
     print("Loading activation datasets...")
-    train_dir = Path("outputs/activations/layer2_new/train")
-    val_dir = Path("outputs/activations/layer2_new/val")
-    test_dir = Path("outputs/activations/layer2_new/test")
+    train_dir = Path("outputs/activations/layer1_new/train")
+    val_dir = Path("outputs/activations/layer1_new/val")
+    test_dir = Path("outputs/activations/layer1_new/test")
 
     if not train_dir.exists():
         print(f"Error: {train_dir} not found. Please run gnn_train.py first.")

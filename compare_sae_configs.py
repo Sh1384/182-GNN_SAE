@@ -27,7 +27,7 @@ import warnings
 warnings.filterwarnings('ignore')
 
 # Configuration
-INPUT_DIM = 64
+INPUT_DIM = 80
 N_PERMUTATIONS = 1000
 SIGNIFICANCE_LEVEL = 0.05
 
@@ -64,7 +64,7 @@ def load_data_and_model(latent_dim, k):
         test_graph_ids = json.load(f)['graph_ids']
 
     # Extract latent representations
-    activation_dir = Path("outputs/activations/layer2/test")
+    activation_dir = Path("outputs/activations/layer1_new/test")
     metadata_dir = Path("virtual_graphs/data/all_graphs/graph_motif_metadata")
 
     all_latents = []
@@ -264,6 +264,17 @@ def analyze_configuration(latent_dim, k):
         0.15 * min(capacity_utilization, 1.0)        # Capacity utilization (15%)
     )
 
+    # Load reconstruction metrics from SAE training
+    metrics_path = f"outputs/sae_metrics_latent{latent_dim}_k{k}.json"
+    test_reconstruction = None
+    if Path(metrics_path).exists():
+        try:
+            with open(metrics_path, 'r') as f:
+                metrics = json.load(f)
+                test_reconstruction = metrics.get('test_reconstruction', None)
+        except (json.JSONDecodeError, KeyError):
+            print(f"  ⚠ Could not load reconstruction metrics from {metrics_path}")
+
     results = {
         'latent_dim': latent_dim,
         'k': k,
@@ -279,6 +290,7 @@ def analyze_configuration(latent_dim, k):
         'best_f1_motif': best_f1_row['motif'] if best_f1_row is not None else 'N/A',
         'best_precision': best_precision,
         'best_recall': best_recall,
+        'test_reconstruction': test_reconstruction,
         'composite_score': composite_score,
     }
 
@@ -289,19 +301,28 @@ def analyze_configuration(latent_dim, k):
     return results
 
 def main():
-    """Run analysis for all configurations and generate summary."""
+    """Run two-stage analysis: fast screening then deep analysis on top configs."""
     print("="*70)
-    print("SAE HYPERPARAMETER COMPARISON")
+    print("SAE HYPERPARAMETER COMPARISON - TWO-STAGE ANALYSIS")
     print("="*70)
-    print(f"\nTesting {len(CONFIGS)} configurations...")
-    print(f"NOTE: Skipping significance testing for speed")
+    print(f"\nTotal configurations to test: {len(CONFIGS)}")
+
+    # STAGE 1: Fast screening (all configs, no permutation testing)
+    print("\n" + "="*70)
+    print("STAGE 1: Fast Screening (All Configurations)")
+    print("="*70)
+    print("Running correlation analysis and precision/recall metrics...")
+    print("Skipping permutation tests in this stage for speed.\n")
 
     results = []
 
-    for latent_dim, k, description in tqdm(CONFIGS, desc="Configurations"):
+    for latent_dim, k, description in tqdm(CONFIGS, desc="Stage 1"):
         config_result = analyze_configuration(latent_dim, k)
         if config_result is not None:
             config_result['description'] = description
+            config_result['significance_tested'] = False
+            config_result['n_significant_features'] = None
+            config_result['max_significant_rpb'] = None
             results.append(config_result)
 
     if len(results) == 0:
@@ -314,32 +335,122 @@ def main():
     # Sort by composite score
     df_results = df_results.sort_values('composite_score', ascending=False)
 
+    # Print Stage 1 summary
+    print("\n" + "="*70)
+    print("STAGE 1 RESULTS: Top 5 by Composite Score")
+    print("="*70)
+    display_cols_stage1 = [
+        'latent_dim', 'k', 'sparsity_pct', 'max_rpb_abs',
+        'best_f1', 'test_reconstruction', 'composite_score'
+    ]
+    top5_stage1 = df_results.head(5)[display_cols_stage1].copy()
+    top5_stage1['sparsity_pct'] = top5_stage1['sparsity_pct'].round(2)
+    top5_stage1['max_rpb_abs'] = top5_stage1['max_rpb_abs'].round(3)
+    top5_stage1['best_f1'] = top5_stage1['best_f1'].round(3)
+    top5_stage1['composite_score'] = top5_stage1['composite_score'].round(3)
+    print(top5_stage1.to_string(index=False))
+
+    # STAGE 2: Deep analysis on top 3 configs
+    print("\n" + "="*70)
+    print("STAGE 2: Deep Analysis (Top 3 Candidates)")
+    print("="*70)
+    print("Running full permutation tests (1000 permutations) on top candidates...")
+    print("This may take several minutes per configuration.\n")
+
+    top_n = min(3, len(df_results))
+    top_configs = df_results.head(top_n)
+
+    for idx, row in top_configs.iterrows():
+        latent_dim_val = int(row['latent_dim'])
+        k_val = int(row['k'])
+
+        print(f"\n[{idx+1}/{top_n}] Testing latent_dim={latent_dim_val}, k={k_val}...")
+        print(f"      Composite score: {row['composite_score']:.3f}")
+
+        # Re-load data and run permutation tests
+        model, df, latent_dim = load_data_and_model(latent_dim_val, k_val)
+        if model is None or df is None:
+            print(f"  ⚠ Could not load data, skipping significance test")
+            continue
+
+        # Compute correlations
+        df_corr = compute_correlations(df, latent_dim)
+        if len(df_corr) == 0:
+            print(f"  ⚠ No valid correlations, skipping significance test")
+            continue
+
+        # Run permutation tests
+        print(f"  Running permutation tests...")
+        df_corr = permutation_test(df, df_corr, latent_dim, n_permutations=N_PERMUTATIONS)
+
+        # Extract significance metrics
+        n_significant = df_corr['significant_fdr'].sum()
+        max_significant_rpb = df_corr[df_corr['significant_fdr']]['rpb_abs'].max() if n_significant > 0 else 0.0
+
+        # Update results
+        df_results.loc[idx, 'significance_tested'] = True
+        df_results.loc[idx, 'n_significant_features'] = int(n_significant)
+        df_results.loc[idx, 'max_significant_rpb'] = float(max_significant_rpb)
+
+        print(f"  ✓ Found {n_significant} significant features (FDR < 0.05)")
+        print(f"  ✓ Max significant |rpb|: {max_significant_rpb:.3f}")
+
+    # Re-sort by composite score after adding significance data
+    df_results = df_results.sort_values('composite_score', ascending=False)
+
+    # Apply tiebreaker logic using reconstruction loss
+    print("\n" + "="*70)
+    print("FINAL SELECTION (with Tiebreaker Logic)")
+    print("="*70)
+
+    top_score = df_results.iloc[0]['composite_score']
+    top_candidates = df_results[df_results['composite_score'] >= top_score - 0.05]
+
+    if len(top_candidates) > 1 and top_candidates['test_reconstruction'].notna().any():
+        # Multiple configs within 0.05 composite score - use reconstruction as tiebreaker
+        valid_recon = top_candidates[top_candidates['test_reconstruction'].notna()]
+        if len(valid_recon) > 0:
+            best_idx = valid_recon['test_reconstruction'].idxmin()
+            best = df_results.loc[best_idx]
+            print(f"\nFound {len(top_candidates)} configs within 0.05 of top composite score.")
+            print(f"Using reconstruction loss as tiebreaker (lower is better).\n")
+            print("Tiebreaker candidates:")
+            tb_cols = ['latent_dim', 'k', 'composite_score', 'test_reconstruction']
+            print(top_candidates[tb_cols].to_string(index=False))
+        else:
+            best = df_results.iloc[0]
+            print(f"\nTop scorer selected (no reconstruction data for tiebreaking).")
+    else:
+        best = df_results.iloc[0]
+        print(f"\nClear winner: latent_dim={int(best['latent_dim'])}, k={int(best['k'])}")
+        print(f"Composite score: {best['composite_score']:.3f} (no close competitors)")
+
     # Save to CSV
     output_file = 'outputs/sae_config_comparison.csv'
     df_results.to_csv(output_file, index=False)
     print(f"\n✓ Saved detailed results to {output_file}")
 
-    # Print summary table
+    # Print Stage 2 summary table
     print("\n" + "="*70)
-    print("SUMMARY: Top 5 Configurations by Composite Score")
+    print("STAGE 2 RESULTS: Top 3 with Significance Testing")
     print("="*70)
 
     display_cols = [
-        'latent_dim', 'k', 'sparsity_pct', 'max_rpb_abs',
-        'best_f1', 'dead_feature_rate', 'composite_score'
+        'latent_dim', 'k', 'sparsity_pct', 'max_rpb_abs', 'n_significant_features',
+        'max_significant_rpb', 'best_f1', 'test_reconstruction', 'composite_score'
     ]
 
-    top5 = df_results.head(5)[display_cols].copy()
-    top5['sparsity_pct'] = top5['sparsity_pct'].round(2)
-    top5['max_rpb_abs'] = top5['max_rpb_abs'].round(3)
-    top5['best_f1'] = top5['best_f1'].round(3)
-    top5['dead_feature_rate'] = top5['dead_feature_rate'].round(3)
-    top5['composite_score'] = top5['composite_score'].round(3)
+    top3 = df_results.head(3)[display_cols].copy()
+    top3['sparsity_pct'] = top3['sparsity_pct'].round(2)
+    top3['max_rpb_abs'] = top3['max_rpb_abs'].round(3)
+    top3['best_f1'] = top3['best_f1'].round(3)
+    top3['composite_score'] = top3['composite_score'].round(3)
+    top3['max_significant_rpb'] = top3['max_significant_rpb'].apply(lambda x: f"{x:.3f}" if pd.notna(x) else "N/A")
+    top3['n_significant_features'] = top3['n_significant_features'].apply(lambda x: f"{int(x)}" if pd.notna(x) else "N/A")
 
-    print(top5.to_string(index=False))
+    print(top3.to_string(index=False))
 
     # Recommendations
-    best = df_results.iloc[0]
     print("\n" + "="*70)
     print("RECOMMENDED CONFIGURATION")
     print("="*70)
@@ -349,6 +460,11 @@ def main():
     print(f"\n  Key Metrics:")
     print(f"    • Max correlation: |rpb| = {best['max_rpb_abs']:.3f}")
     print(f"    • Best F1 score: {best['best_f1']:.3f}")
+    if pd.notna(best.get('test_reconstruction')):
+        print(f"    • Reconstruction loss: {best['test_reconstruction']:.2e}")
+    if pd.notna(best.get('n_significant_features')):
+        print(f"    • Significant features (FDR<0.05): {int(best['n_significant_features'])}")
+        print(f"    • Max significant |rpb|: {best['max_significant_rpb']:.3f}")
     print(f"    • Active features: {int(best['n_active_features'])}/{int(best['latent_dim'])} ({100*(1-best['dead_feature_rate']):.1f}%)")
     print(f"    • Composite score: {best['composite_score']:.3f}")
 
@@ -356,7 +472,12 @@ def main():
     print("INTERPRETATION GUIDE")
     print("="*70)
     print("""
-  Composite Score Components (no significance testing):
+  Two-Stage Selection Process:
+    1. Stage 1: Fast screening of all configs using composite score
+    2. Stage 2: Full permutation tests (1000 perms) on top 3 only
+    3. Tiebreaker: If top scores within 0.05, choose lower reconstruction loss
+
+  Composite Score Components:
     • 50% - Max correlation (effect size)
     • 35% - Best F1 score (predictive performance)
     • 15% - Capacity utilization (1 - dead feature rate)
@@ -365,9 +486,11 @@ def main():
     ✓ Composite score > 0.5
     ✓ Max |rpb| > 0.3
     ✓ Best F1 > 0.3
+    ✓ Significant features (FDR<0.05) > 20
+    ✓ Low reconstruction loss (< 1e-6)
     ✓ Dead feature rate < 0.5
 
-  To use the recommended configuration, update your notebook:
+  To use the recommended configuration, update your code:
     LATENT_DIM = {best_latent}
     K = {best_k}
     """.format(best_latent=int(best['latent_dim']), best_k=int(best['k'])))
